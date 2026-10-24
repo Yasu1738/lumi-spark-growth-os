@@ -14,6 +14,7 @@ import argparse
 import json
 import sys
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -30,7 +31,8 @@ def fetch_feed(url=rss.FEED_URL) -> str:
 def mobile_writes(planned, out_dir: Path, actor: str):
     """スマホ版（claude.aiのページのデータベース）への書き込み内容をファイルにする。"""
     out_dir.mkdir(parents=True, exist_ok=True)
-    now = repository.now_iso()[:16]
+    # スマホ版の記録は日本時間で表示しているため、作業環境の時刻（UTCの場合がある）ではなく日本時間にそろえる
+    now = datetime.now(rss.JST).strftime("%Y-%m-%d %H:%M")
     writes = []
     for x in planned:
         if x["action"] == "update":
