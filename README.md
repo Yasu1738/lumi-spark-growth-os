@@ -20,6 +20,22 @@ Lumi Sparkのnote記事を資産として管理し、ハブ記事から関連記
 - 外部通信（Streamlitの利用統計送信も `.streamlit/config.toml` で無効化、localhostのみで待受）
 - APIキー・有料サービスの利用
 
+## noteのRSSからの取り込み（オーナー承認：2026-10-24）
+
+noteが公式に提供するRSS（`https://note.com/lumispark/rss`）から、記事のタイトル・URL・公開日時を取り込めます。
+取得するのはRSSだけで、記事ページの読み取り・ログイン・非公式APIは使いません。通信するのは `scripts/rss_sync.py` だけで、アプリ本体（`lumi_growth_os/`・`app/`）は通信しません。
+
+```bash
+python scripts/rss_sync.py --local --actor 西冨 --dry-run   # 反映内容の確認
+python scripts/rss_sync.py --local --actor 西冨             # パソコン版へ反映
+```
+
+- 途中までのタイトル（「…（以降未確認）」）は、RSSのタイトルと前方一致すれば自動で補います。
+- URLの共有用パラメータは除去し、公開日時は日本時間に変換します。公開日時は未登録の記事にだけ入れます。
+- 新しい記事は `LS-A010` 以降の番号で追加します（テーマ・タグは未設定）。
+- RSSに載るのは最近の記事だけです。古い記事はスマホ版の「まとめて貼り付け」で入れてください。
+- Claude Codeのクラウド環境から実行する場合は、環境の Network access で `note.com` を許可する必要があります。
+
 ## 動作環境
 
 - Python 3.10 以上（3.13 で検証）
