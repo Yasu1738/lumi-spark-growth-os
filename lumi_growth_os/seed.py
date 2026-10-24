@@ -33,11 +33,13 @@ REAL_ARTICLES = [
     {
         "article_id": "LS-A002",
         "title": "事業承継は、親子関…（以降未確認）",
-        "title_status": "一部のみ", "url": None, "url_status": "未確認", "theme": "ORG",
+        "title_status": "一部のみ", "url": "https://note.com/lumispark/n/n2277389a2429",
+        "url_status": "オーナー提示", "theme": "ORG",
         "funnel_stage": "認知",
         "topic_tags": "事業承継,継承,リーダーシップ,組織づくり,権限と責任,人材育成,中小企業経営",
-        "verification_status": "仮登録", "source": SRC_RANKING,
-        "notes": "HUB-ORGの仮登録。ランキング画像ではタイトルが途中で切れており、記事名・URL未照合。",
+        "verification_status": "仮登録", "source": SRC_RANKING + "／URL: オーナー提示（2026-10-24 チャット）",
+        "notes": "HUB-ORGの仮登録。URLはオーナーが2026-10-24に提示（共有用パラメータ ?sub_rt=share_b を除去）。"
+                 "ランキング画像の記事と同一である前提で登録しているが、正式タイトルは未確認。",
     },
     {
         "article_id": "LS-A003",
@@ -105,7 +107,7 @@ HUBS = [
     },
     {
         "hub_id": "HUB-ORG", "name": "経営・組織・事業承継", "hub_article_id": "LS-A002", "sort_order": 2,
-        "status": "仮登録（記事名・URL未照合）",
+        "status": "仮登録（URLはオーナー提示・正式タイトル未確認）",
         "related_topics": "リーダーシップ,組織づくり,権限と責任,事業承継,人材育成,中小企業経営",
         "description": "事業承継を入口に、権限と責任・人材育成・中小企業経営へつなぐ。",
         "steps": [("リーダーシップ", "信頼"), ("権限と責任", "信頼"), ("事業承継", "信頼"),

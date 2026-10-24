@@ -114,11 +114,18 @@ def validate_url(url):
         return "invalid", None, "URLに空白が含まれています"
     if not text.startswith("https://"):
         return "invalid", None, "https:// で始まるURLではありません"
+    stripped = ""
+    if text.startswith("https://note.com/"):
+        # 共有ボタンで付く ?sub_rt=share_b などのパラメータは記事の特定に不要なので除去する
+        base = text.split("#", 1)[0].split("?", 1)[0].rstrip("/")
+        if base != text:
+            stripped = "（共有用パラメータを除去）"
+            text = base
     match = NOTE_ARTICLE_URL.match(text)
     if match:
         if match.group("creator") != OWN_CREATOR_ID:
-            return "note_article", text, f"note記事URLですが作成者IDが {OWN_CREATOR_ID} ではありません（要確認）"
-        return "note_article", text, "note記事URLの形式です（実在は未確認）"
+            return "note_article", text, f"note記事URLですが作成者IDが {OWN_CREATOR_ID} ではありません（要確認）{stripped}"
+        return "note_article", text, f"note記事URLの形式です（実在は未確認）{stripped}"
     if text.startswith("https://note.com/"):
         return "invalid", None, "note.com のURLですが記事URLの形式（/ユーザー名/n/nXXXXXXXXXXXX）ではありません"
     if re.fullmatch(r"https://[A-Za-z0-9.\-]+\.[A-Za-z]{2,}(/\S*)?", text):

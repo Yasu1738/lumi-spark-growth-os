@@ -19,7 +19,7 @@ def test_seed_real_articles_have_no_invented_codes_or_urls(seeded):
     for a in repository.list_articles(seeded, "real"):
         assert a["title_structure"] is None and a["human_code"] is None
         assert a["source"]
-        if a["article_id"] not in ("LS-A001", "LS-A003"):
+        if a["article_id"] not in ("LS-A001", "LS-A002", "LS-A003"):  # オーナー提示URLのみ
             assert a["url"] is None
 
 

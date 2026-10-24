@@ -220,16 +220,34 @@ def test_ac06_cp932_csv(conn, tmp_path):
 
 # 7. 未確認URLを未確認として管理できる
 def test_ac07_unverified_urls(seeded):
-    hub_org = repository.get_article(seeded, "LS-A002")
-    assert hub_org["url"] is None and hub_org["url_status"] == "未確認"
-    assert hub_org["title_status"] == "一部のみ"
+    no_url = repository.get_article(seeded, "LS-A004")
+    assert no_url["url"] is None and no_url["url_status"] == "未確認"
     with pytest.raises(ValidationError):
-        repository.update_article(seeded, "LS-A002", {"url_status": "表示確認済み"}, ACTOR)
+        repository.update_article(seeded, "LS-A004", {"url_status": "表示確認済み"}, ACTOR)
     # URLを変更すると確認状態は未確認に戻る
     repository.update_article(seeded, "LS-A001", {"url": "https://note.com/lumispark/n/n111111111111"}, ACTOR)
     assert repository.get_article(seeded, "LS-A001")["url_status"] == "未確認"
     unverified = repository.pending_human_items(seeded)["URL未確認の記事"]
-    assert {"LS-A002", "LS-A004"} <= {a["article_id"] for a in unverified}
+    assert {"LS-A001", "LS-A004"} <= {a["article_id"] for a in unverified}
+
+
+def test_ac07_owner_url_alone_does_not_make_link_production_ready(seeded):
+    """HUB-ORGはURLがオーナー提示済みでも、タイトル・本文が未確認なので仮案のまま。"""
+    hub_org = repository.get_article(seeded, "LS-A002")
+    assert hub_org["url"] == "https://note.com/lumispark/n/n2277389a2429"
+    assert hub_org["url_status"] == "オーナー提示" and hub_org["title_status"] == "一部のみ"
+    for link in repository.list_links(seeded, source_id="LS-A002"):
+        blockers = repository.link_readiness(seeded, link)["blockers"]
+        assert "リンク元のタイトルが未照合（一部のみ）" in blockers
+        assert not any(b.startswith("リンク元のURL") for b in blockers)
+
+
+def test_ac07_share_parameters_are_stripped():
+    kind, url, message = validate_url("https://note.com/lumispark/n/n2277389a2429?sub_rt=share_b")
+    assert kind == "note_article" and url == "https://note.com/lumispark/n/n2277389a2429"
+    assert "共有用パラメータを除去" in message
+    assert validate_url("https://note.com/lumispark/n/n2277389a2429/#top")[1] == \
+        "https://note.com/lumispark/n/n2277389a2429"
 
 
 def test_ac07_recommendations_label_unreviewed_relevance(seeded):
