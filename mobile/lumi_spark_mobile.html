@@ -137,6 +137,17 @@ nav.tabs button[aria-current="page"] { color: var(--accent); font-weight: 700; }
 .seg { display: flex; gap: 6px; flex-wrap: wrap; }
 .seg button { min-height: 34px; padding: 5px 12px; font-size: 13px; }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.step h2 { display: flex; align-items: center; gap: 8px; }
+.stepno { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 14px; flex: none; }
+.step.done { opacity: .8; }
+.step.done .stepno { background: var(--ok); }
+.qrow { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); }
+.qcol { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid var(--line); }
+.qtitle { font-size: 14px; overflow-wrap: anywhere; min-width: 0; }
+.qrow button, .row.nowrap button { flex: none; white-space: nowrap; }
+.row.nowrap { flex-wrap: nowrap; }
+.small-btn { font-size: 12px; min-height: 32px; padding: 4px 10px; text-align: left; }
+details > summary { cursor: pointer; font-weight: 600; font-family: var(--font-display); list-style-position: inside; }
 .hist { font-size: 12px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 8px; }
 @media (prefers-reduced-motion: no-preference) { .card.tap { transition: background .12s; } }
 </style>
@@ -218,7 +229,7 @@ const fmt = (v) => (v === null || v === undefined ? '<span class="missing">未�
 const fmtP = (v) => (v === null ? '<span class="missing">計算不能</span>' : v.toFixed(2));
 function storeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
 function storeSet(k, v) { try { localStorage.setItem(k, v); } catch { /* 保存できなくても動作は続ける */ } }
-function toast(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
+function toast(msg) { document.querySelectorAll(".toast").forEach((x) => x.remove()); const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 class VErr extends Error {}
 
 function actor() { return (storeGet("lumi.actor") || "").trim(); }
@@ -393,43 +404,82 @@ function statusPill(a) {
   return u + b + t + k;
 }
 
-function viewHome() {
-  const p = pending();
-  const links = Object.values(S.links);
-  const ready = links.filter((l) => readiness(l).ready).length;
-  const hubs = Object.values(S.hubs).sort((x, y) => (x.sort_order || 0) - (y.sort_order || 0));
-  const todo = [
-    ["本文を確認していない記事", p.body.length, "articles"], ["URLが未確認の記事", p.url.length, "articles"],
-    ["承認を待つリンク提案", p.links.length, "links"], ["構造コード未設定の記事", p.codes.length, "articles"],
-  ];
-  return `
-  <h1>今日の作業台</h1>
-  <p class="lead">記事を公開するほど、読者との関係が積み上がる仕組み。提案は人が承認するまで公開されません。</p>
-  <div class="stats">
-    <div class="stat"><div class="n">${Object.keys(S.articles).length}</div><div class="l">記事</div></div>
-    <div class="stat"><div class="n">${links.length}</div><div class="l">リンク提案</div></div>
-    <div class="stat attn"><div class="n">${ready}</div><div class="l">noteへ反映できるリンク</div></div>
-    <div class="stat"><div class="n">${Object.keys(S.metrics).length}</div><div class="l">記録した数字</div></div>
-  </div>
-  <div class="stack" style="margin-top:14px">
-    <div class="card"><h2>次にやること</h2><ul class="plain">
-      ${todo.map(([l, n, tab]) => `<li class="row spread"><span>${l}</span><button type="button" class="ghost" data-go="${tab}">${n}件 →</button></li>`).join("")}
-    </ul></div>
-    ${hubs.map((h) => {
-      const art = S.articles[h.hub_article_id];
-      const hl = links.filter((l) => l.source === h.hub_article_id);
-      return `<div class="card tap" data-open-article="${esc(h.hub_article_id || "")}">
-        <div class="row spread"><h2>${esc(h.name)}</h2><span class="pill accent">${esc(h.status || "")}</span></div>
-        <div class="title-line">${esc(art ? art.title : "（ハブ記事未設定）")}</div>
-        ${art ? `<div class="row">${statusPill(art)}</div>` : ""}
-        <div class="path"><b>${esc(h.name)}</b>${(h.steps || []).map((s) => `→ <span>${esc(s.label)}</span>`).join(" ")}</div>
-        <div class="small">関連記事の提案 ${hl.length}件（反映できるもの ${hl.filter((l) => readiness(l).ready).length}件）</div>
-      </div>`;
-    }).join("")}
-    <div class="card"><h2>最近の操作</h2>
-      ${S.audit.length ? `<ul class="plain">${S.audit.slice(0, 8).map((x) => `<li class="hist">${esc(x.at)}　${esc(x.actor || "")}　${esc(x.action)}${x.approver ? `（承認者：${esc(x.approver)}）` : ""}</li>`).join("")}</ul>` : '<p class="small">まだ操作はありません。</p>'}
-    </div>
+const STATUS_LABEL = { "提案": "提案（まだ見ていない）", "確認": "確認済み・承認待ち", "承認": "承認済み・noteにまだ貼っていない", "note反映": "noteに貼った・表示の確認待ち", "表示確認": "完了", "却下": "見送り" };
+const byId = (a, b) => a.id.localeCompare(b.id);
+function linkFixes(l) {
+  const out = [];
+  for (const [role, id] of [["リンク元", l.source], ["リンク先", l.target]]) {
+    const a = S.articles[id]; if (!a) continue;
+    if (!a.url || !URL_USABLE.has(a.url_status)) out.push({ text: `「${a.title.slice(0, 22)}」のURLを入れる`, id });
+    if (!a.content_reviewed) out.push({ text: `「${a.title.slice(0, 22)}」の本文確認にチェック`, id });
+    if (a.title_status !== "確認済み") out.push({ text: `「${a.title.slice(0, 22)}」の正式タイトルを入れる`, id });
+  }
+  return out;
+}
+function step(n, title, doneText, isDone, body) {
+  return `<div class="card step${isDone ? " done" : ""}">
+    <div class="row spread"><h2><span class="stepno">${isDone ? "✓" : n}</span>${title}</h2>${isDone ? '<span class="pill ok">完了</span>' : ""}</div>
+    ${isDone ? `<p class="small">${doneText}</p>` : body}
   </div>`;
+}
+function viewHome() {
+  const real = Object.values(S.articles).filter((a) => a.data_kind !== "sample").sort(byId);
+  const info = Object.values(S.links).filter((l) => l.status !== REJECTED).sort(byId).map((l) => ({ l, r: readiness(l) }));
+  const who = actor();
+  const unreviewed = real.filter((a) => !a.content_reviewed);
+  const noUrl = real.filter((a) => !a.url || !URL_USABLE.has(a.url_status));
+  const approvable = info.filter((x) => !x.r.blockers.length && (x.l.status === "提案" || x.l.status === "確認"));
+  const almost = info.filter((x) => x.r.blockers.length && (x.l.status === "提案" || x.l.status === "確認"))
+    .sort((a, b) => linkFixes(a.l).length - linkFixes(b.l).length).slice(0, 3);
+  const toPaste = info.filter((x) => x.l.status === "承認");
+  const toCheck = info.filter((x) => x.l.status === "note反映");
+  const finished = info.filter((x) => x.l.status === "表示確認").length;
+  const hubs = Object.values(S.hubs).sort((x, y) => (x.sort_order || 0) - (y.sort_order || 0));
+  const pair = (l) => `<div class="small">${esc(articleTitle(l.source).slice(0, 24))} →</div><div class="title-line">${esc(articleTitle(l.target))}</div>`;
+  return `
+  <h1>やること</h1>
+  <p class="lead">上から順に進めてください。ボタンを押すと、その場で保存されます。</p>
+  <div class="stack">
+  ${step(1, "名前を入れる", `担当者：${esc(who)}（右上で変更できます）`, !!who,
+    `<p class="small">誰が操作したかの記録に使います。</p><button type="button" class="primary" id="actorBtn2">名前を入れる</button>`)}
+
+  ${step(2, "記事の中身を確認済みにする", "すべての記事を確認済みにしました。", !unreviewed.length,
+    `<p class="small">ご自身が書いた記事で、内容を覚えていれば「確認した」を押すだけです。関連記事としてつないでよいかを判断する前提になります。</p>
+    <ul class="plain">${unreviewed.map((a) => `<li class="qrow"><span class="qtitle">${esc(a.title)}</span><button type="button" data-review="${esc(a.id)}">確認した</button></li>`).join("")}</ul>`)}
+
+  ${step(3, "記事のURLを入れる", "すべての記事にURLが入りました。", !noUrl.length,
+    `<p class="small">noteで記事を開き、共有ボタン →「リンクをコピー」。下の欄に貼って「保存」を押します。</p>
+    <ul class="plain">${noUrl.map((a) => `<li class="qcol"><span class="qtitle">${esc(a.title)}</span>
+      ${a.title_status !== "確認済み" ? `<button type="button" class="ghost small-btn" data-open-article="${esc(a.id)}">タイトルが途中までです。正式タイトルを入れる →</button>` : ""}
+      <div class="row nowrap"><input id="u-${esc(a.id)}" inputmode="url" placeholder="https://note.com/lumispark/n/..." value="${esc(a.url || "")}"><button type="button" class="primary" data-saveurl="${esc(a.id)}">保存</button></div></li>`).join("")}</ul>`)}
+
+  ${step(4, "関連記事のリンクを承認する", "承認を待つリンクはありません。", !approvable.length && !almost.length,
+    `${approvable.length ? `<p class="small">2つの記事をつなぐ意味があれば「確認」→「承認」と押します。合わなければ「見送り」。</p>
+      <ul class="plain">${approvable.map(({ l }) => `<li class="qcol">${pair(l)}<div class="small">${esc(l.reason || "")}</div>
+        <div class="row">${l.status === "提案" ? `<button type="button" class="primary" data-quick="${esc(l.id)}" data-to="確認">つなぐ意味がある（確認）</button>` : `<button type="button" class="spark" data-quick="${esc(l.id)}" data-to="承認">承認する</button>`}
+        <button type="button" class="danger" data-quick="${esc(l.id)}" data-to="却下">見送り</button></div></li>`).join("")}</ul>`
+      : `<p class="small">今すぐ承認できるリンクはありません。下の項目を埋めると承認できるようになります。</p>`}
+    ${almost.length ? `<div class="small" style="margin-top:6px">あと少しで承認できるリンク</div>
+      <ul class="plain">${almost.map(({ l }) => `<li class="qcol">${pair(l)}<div class="row">${linkFixes(l).slice(0, 3).map((f) => `<button type="button" class="ghost small-btn" data-open-article="${esc(f.id)}">${esc(f.text)} →</button>`).join("")}</div></li>`).join("")}</ul>` : ""}`)}
+
+  ${step(5, "noteに貼る", "noteに貼る待ちのリンクはありません。", !toPaste.length,
+    `<p class="small">「貼り付け文を開く」でコピーし、noteの記事の末尾に貼ります。貼ったら「noteに貼った」を押します。</p>
+    <ul class="plain">${toPaste.map(({ l }) => `<li class="qcol">${pair(l)}<div class="row"><button type="button" data-paste-src="${esc(l.source)}">貼り付け文を開く</button><button type="button" class="primary" data-quick="${esc(l.id)}" data-to="note反映">noteに貼った</button></div></li>`).join("")}</ul>`)}
+
+  ${step(6, "noteで表示を確かめる", finished ? `${finished}本のリンクが完了しています。` : "確かめ待ちのリンクはありません。", !toCheck.length,
+    `<p class="small">公開中の記事を開き、リンクをタップして関連記事が開けば「開けた」を押します。</p>
+    <ul class="plain">${toCheck.map(({ l }) => `<li class="qcol">${pair(l)}<button type="button" class="primary" data-quick="${esc(l.id)}" data-to="表示確認">開けた</button></li>`).join("")}</ul>`)}
+  </div>
+
+  <details class="card" style="margin-top:14px"><summary>3つのハブ</summary>
+    <div class="stack" style="margin-top:8px">${hubs.map((h) => { const art = S.articles[h.hub_article_id]; return `
+      <div class="card tap" data-open-article="${esc(h.hub_article_id || "")}" style="background:var(--bg)">
+        <h2>${esc(h.name)}</h2><div class="title-line">${esc(art ? art.title : "（ハブ記事未設定）")}</div>
+        <div class="path"><b>${esc(h.name)}</b>${(h.steps || []).map((s) => `→ <span>${esc(s.label)}</span>`).join(" ")}</div></div>`; }).join("")}</div>
+  </details>
+  <details class="card" style="margin-top:10px"><summary>最近の操作</summary>
+    ${S.audit.length ? `<ul class="plain" style="margin-top:8px">${S.audit.slice(0, 10).map((x) => `<li class="hist">${esc(x.at)}　${esc(x.actor || "")}　${esc(x.action)}</li>`).join("")}</ul>` : '<p class="small">まだ操作はありません。</p>'}
+  </details>`;
 }
 
 function viewArticles() {
@@ -469,7 +519,7 @@ function viewLinks() {
       <div class="small">リンク元</div><div class="title-line">${esc(articleTitle(src))}</div>
       <div class="stack">${ls.map((l) => { const r = readiness(l); return `
         <div class="card tap" data-open-link="${esc(l.id)}" style="background:var(--bg)">
-          <div class="row spread"><span class="small">${esc(l.id)}</span><span class="row"><span class="pill">${esc(l.status)}</span><span class="pill ${r.cls}">${esc(r.label)}</span></span></div>
+          <div class="row spread"><span class="small">${esc(l.id)}</span><span class="pill ${r.cls}">${esc(STATUS_LABEL[l.status] || l.status)}</span></div>
           <div class="title-line">→ ${esc(articleTitle(l.target))}</div>
           <div class="small">${esc(l.reason || "")}</div>
         </div>`; }).join("")}</div>
@@ -554,14 +604,19 @@ function openArticle(id) {
     <div class="card">
       ${isNew ? `<label class="f">記事ID（英数字。例：LS-A010）<input id="fId" autocapitalize="characters"></label>` : `<div class="small">${esc(a.id)}${a.data_kind === "sample" ? "（サンプル）" : ""}</div>`}
       <label class="f">タイトル<textarea id="fTitle" rows="2">${esc(a.title)}</textarea></label>
-      <label class="f">タイトルの確認状態${sel("fTitleStatus", TITLE_STATUSES, a.title_status, false)}</label>
       <label class="f">記事URL（noteの共有ボタンでコピーしたものをそのまま貼れます）<input id="fUrl" inputmode="url" value="${esc(a.url || "")}"></label>
       <div class="small" id="urlMsg"></div>
-      <label class="f">URLの確認状態${sel("fUrlStatus", URL_STATUSES, a.url_status, false)}</label>
-      <label class="check"><input type="checkbox" id="fReviewed" ${a.content_reviewed ? "checked" : ""}>本文を読んで内容を確認した（関連性を判断する前提）</label>
-      <label class="f">公開日時（24時間・72時間の数字を記録するのに必要）<input type="datetime-local" id="fPub" value="${esc(toLocalInput(a.published_at))}"></label>
+      <label class="check"><input type="checkbox" id="fReviewed" ${a.content_reviewed ? "checked" : ""}>中身を確認した（内容を覚えていればOK）</label>
+      <label class="f">公開日時（24時間後・72時間後の数字を記録するときに必要）<input type="datetime-local" id="fPub" value="${esc(toLocalInput(a.published_at))}"></label>
+      <button type="button" class="primary" id="fSave">保存</button>
     </div>
-    <div class="card"><h2>中身</h2>
+    <details class="card"><summary>くわしく設定する（テーマ・構造コードなど。あとでも大丈夫）</summary>
+    <div class="stack" style="margin-top:8px">
+    <div class="card" style="background:var(--bg)"><h2>確認状態</h2>
+      <label class="f">タイトルの確認状態${sel("fTitleStatus", TITLE_STATUSES, a.title_status, false)}</label>
+      <label class="f">URLの確認状態${sel("fUrlStatus", URL_STATUSES, a.url_status, false)}</label>
+    </div>
+    <div class="card" style="background:var(--bg)"><h2>中身</h2>
       <div class="grid2">
         <label class="f">テーマ${sel("fTheme", Object.entries(THEMES).map(([k, v]) => [k, `${k} ${v}`]), a.theme)}</label>
         <label class="f">主目的${sel("fPurpose", PURPOSES, a.primary_purpose)}</label>
@@ -571,7 +626,7 @@ function openArticle(id) {
       <label class="f">関連テーマタグ（カンマ区切り。推薦に使います）<input id="fTags" value="${esc(a.topic_tags || "")}"></label>
       <label class="f">読者をつなぐ段階${sel("fStage", STAGES, a.funnel_stage)}</label>
     </div>
-    <div class="card"><h2>構造コード（執筆基準Ver.6.1）</h2>
+    <div class="card" style="background:var(--bg)"><h2>構造コード（執筆基準Ver.6.1）</h2>
       <div class="small">タイトル構造（複数選択可）</div>
       <div class="seg" id="fTS">${Object.entries(TITLE_CODES).map(([k, v]) => `<button type="button" data-ts="${k}" aria-pressed="${tsel.includes(k)}">${k} ${v}</button>`).join("")}</div>
       <div class="grid2">
@@ -581,7 +636,8 @@ function openArticle(id) {
       </div>
       <label class="f">公開前の仮説<input id="fHyp" value="${esc(a.pre_hypothesis || "")}"></label>
     </div>
-    <button type="button" class="primary" id="fSave">保存</button>
+    <button type="button" class="primary" id="fSave2">くわしい設定も保存</button>
+    </div></details>
     ${isNew ? "" : `<div class="card"><div class="row spread"><h2>記録した数字</h2><button type="button" data-new-metric="${esc(a.id)}">＋ 記録</button></div>
       ${ms.length ? `<div class="tablewrap"><table><thead><tr><th>区分</th><th>計測日時</th><th class="num">PV</th><th class="num">スキ</th><th class="num">コメント</th></tr></thead><tbody>
       ${ms.map((m) => `<tr><td>${esc(WINDOWS[m.window] || m.window)}</td><td>${esc(m.measured_at)}</td><td class="num">${fmt(m.pv)}</td><td class="num">${fmt(m.likes)}</td><td class="num">${fmt(m.comments)}</td></tr>`).join("")}</tbody></table></div>` : '<p class="small">まだ記録がありません。</p>'}</div>`}
@@ -591,7 +647,7 @@ function openArticle(id) {
     urlIn.addEventListener("input", showUrl); showUrl();
     el.querySelectorAll("[data-ts]").forEach((b) => b.addEventListener("click", () => b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true")));
     const nm = el.querySelector("[data-new-metric]"); if (nm) nm.addEventListener("click", () => openMetric(nm.dataset.newMetric));
-    el.querySelector("#fSave").addEventListener("click", async (ev) => {
+    const saveArticle = async (ev) => {
       const btn = ev.currentTarget; btn.disabled = true;
       try {
         const who = needActor();
@@ -601,9 +657,12 @@ function openArticle(id) {
         const title = el.querySelector("#fTitle").value.trim(); if (!title) throw new VErr("タイトルを入力してください");
         const u = validateUrl(urlIn.value); if (u.kind === "invalid") throw new VErr("URL：" + u.msg);
         let us = el.querySelector("#fUrlStatus").value;
-        if (!u.url) us = "未確認"; else if (!isNew && u.url !== a.url && us === a.url_status && us !== "未確認") us = "未確認";
+        // ここでURLを入れるのは記事の筆者本人なので、新しく入れたURLは「オーナー提示」として扱う
+        if (!u.url) us = "未確認"; else if (u.url !== a.url && us === (a.url_status || "未確認") && us !== "表示確認済み") us = "オーナー提示";
+        let ts = el.querySelector("#fTitleStatus").value;
+        if (!isNew && title !== a.title && ts === a.title_status) ts = "確認済み";
         const data = {
-          id: newId, title, title_status: el.querySelector("#fTitleStatus").value, url: u.url, url_status: us,
+          id: newId, title, title_status: ts, url: u.url, url_status: us,
           content_reviewed: el.querySelector("#fReviewed").checked, published_at: normDT(el.querySelector("#fPub").value),
           theme: el.querySelector("#fTheme").value || null, primary_purpose: el.querySelector("#fPurpose").value || null,
           target_reader: el.querySelector("#fReader").value.trim() || null, core_claim: el.querySelector("#fClaim").value.trim() || null,
@@ -627,7 +686,9 @@ function openArticle(id) {
         }
         toast(u.msg.includes("除去") ? "保存しました（URLの共有用部分を除去）" : "保存しました"); closeSheet();
       } catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); btn.disabled = false; }
-    });
+    };
+    el.querySelector("#fSave").addEventListener("click", saveArticle);
+    el.querySelector("#fSave2").addEventListener("click", saveArticle);
   });
 }
 
@@ -638,10 +699,10 @@ function openLink(id) {
   openSheet(`${l.id}`, `
   <div class="stack">
     <div class="card">
-      <div class="row"><span class="pill">${esc(l.status)}</span><span class="pill ${r.cls}">${esc(r.label)}</span><span class="pill">関連性：${esc(l.relevance_status || "未確認")}</span></div>
+      <div class="row"><span class="pill">${esc(STATUS_LABEL[l.status] || l.status)}</span><span class="pill ${r.cls}">${esc(r.label)}</span></div>
       <div class="small">リンク元</div><div class="title-line">${esc(articleTitle(l.source))}</div>
       <div class="small">リンク先</div><div class="title-line">${esc(articleTitle(l.target))}</div>
-      ${r.blockers.length ? `<div class="note warn">本番に反映できない理由<ul class="blockers">${r.blockers.map((b) => `<li>${esc(b)}</li>`).join("")}</ul></div>` : ""}
+      ${r.blockers.length ? `<div class="note warn">承認する前に、次を済ませてください</div><div class="stack">${linkFixes(l).map((f) => `<button type="button" class="ghost" data-fix="${esc(f.id)}">${esc(f.text)} →</button>`).join("")}</div>` : ""}
     </div>
     <div class="card"><h2>提案の内容</h2>
       <label class="f">推薦理由<textarea id="lReason">${esc(l.reason || "")}</textarea></label>
@@ -655,12 +716,13 @@ function openLink(id) {
       <label class="f">承認者（「承認」のときに必要）<input id="lApprover" value="${esc(actor())}"></label>
       <label class="f">コメント（任意）<input id="lComment"></label>
       ${nexts.includes("note反映") ? '<div class="note">noteの編集画面でご自身がリンクを貼ったあとに押してください。このページはnoteを操作しません。</div>' : ""}
-      <div class="row">${nexts.map((s) => `<button type="button" class="${s === REJECTED ? "danger" : "primary"}" data-to="${esc(s)}">${s === REJECTED ? "却下する" : `「${esc(s)}」にする`}</button>`).join("")}</div>
+      <div class="row">${nexts.map((s) => `<button type="button" class="${s === REJECTED ? "danger" : "primary"}" data-to="${esc(s)}">${s === REJECTED ? "見送り" : esc({ "提案": "提案に戻す", "確認": "つなぐ意味がある（確認）", "承認": "承認する", "note反映": "noteに貼った", "表示確認": "表示を確かめた" }[s])}</button>`).join("")}</div>
     </div>` : ""}
     <div class="card"><h2>この提案の履歴</h2>
       ${(l.history || []).slice().reverse().map((h) => `<div class="hist">${esc(h.at)}　${esc(h.actor)}　${esc(h.from)}→${esc(h.to)}${h.approver ? `（承認者：${esc(h.approver)}）` : ""}${h.comment ? `<br>${esc(h.comment)}` : ""}</div>`).join("") || '<p class="small">まだ状態の変更はありません。</p>'}
     </div>
   </div>`, (el) => {
+    el.querySelectorAll("[data-fix]").forEach((b) => b.addEventListener("click", () => openArticle(b.dataset.fix)));
     el.querySelector("#lSave").addEventListener("click", async () => {
       try {
         needActor();
@@ -674,21 +736,26 @@ function openLink(id) {
     el.querySelectorAll("[data-to]").forEach((b) => b.addEventListener("click", async () => {
       b.disabled = true;
       try {
-        const who = needActor(); const to = b.dataset.to;
-        const approver = el.querySelector("#lApprover")?.value.trim(); const comment = el.querySelector("#lComment")?.value.trim();
-        const blockers = linkBlockers(l);
-        const upd = { status: to, updated_at: now() };
-        if (to === "確認") { const s = S.articles[l.source], t = S.articles[l.target]; upd.relevance_status = s?.content_reviewed && t?.content_reviewed ? "確認済み" : "未確認（本文未確認の記事を含む）"; }
-        if (to === "承認") { if (!approver) throw new VErr("承認者名を入力してください"); if (blockers.length) throw new VErr("仮案のため承認できません：" + blockers.join("、")); }
-        if ((to === "note反映" || to === "表示確認") && blockers.length) throw new VErr("本番反映の記録はできません：" + blockers.join("、"));
-        if (to === "提案") upd.relevance_status = "未確認";
-        upd.history = [...(l.history || []), { at: now(), actor: who, from: l.status, to, approver: to === "承認" ? approver : null, comment: comment || null }];
-        await write("links/" + l.id, upd, true);
-        await audit(`リンク状態変更：${l.status}→${to}`, "link", l.id, { status: l.status }, { status: to }, to === "承認" ? approver : null, comment);
-        toast(`「${to}」にしました`); closeSheet();
+        const to = b.dataset.to;
+        await doTransition(l, to, el.querySelector("#lApprover")?.value.trim(), el.querySelector("#lComment")?.value.trim());
+        toast(`「${STATUS_LABEL[to] || to}」にしました`); closeSheet();
       } catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); b.disabled = false; }
     }));
   });
+}
+
+async function doTransition(l, to, approver, comment) {
+  const who = needActor();
+  if (!nextStatuses(l.status).includes(to)) throw new VErr(`「${l.status}」から「${to}」へは進めません`);
+  const blockers = linkBlockers(l);
+  const upd = { status: to, updated_at: now() };
+  if (to === "確認") { const s = S.articles[l.source], t = S.articles[l.target]; upd.relevance_status = s?.content_reviewed && t?.content_reviewed ? "確認済み" : "未確認（本文未確認の記事を含む）"; }
+  if (to === "承認") { if (!approver) throw new VErr("承認者名を入力してください"); if (blockers.length) throw new VErr("まだ承認できません：" + blockers.join("、")); }
+  if ((to === "note反映" || to === "表示確認") && blockers.length) throw new VErr("まだ記録できません：" + blockers.join("、"));
+  if (to === "提案") upd.relevance_status = "未確認";
+  upd.history = [...(l.history || []), { at: now(), actor: who, from: l.status, to, approver: to === "承認" ? approver : null, comment: comment || null }];
+  await write("links/" + l.id, upd, true);
+  await audit(`リンク状態変更：${l.status}→${to}`, "link", l.id, { status: l.status }, { status: to }, to === "承認" ? approver : null, comment);
 }
 
 function openMetric(articleId) {
@@ -748,7 +815,32 @@ document.addEventListener("click", async (ev) => {
   const t = ev.target.closest("button, .card.tap"); if (!t) return;
   if (t.dataset.tab) { S.tab = t.dataset.tab; storeSet("lumi.tab", S.tab); window.scrollTo(0, 0); render(); return; }
   if (t.dataset.go) { S.tab = t.dataset.go; if (t.dataset.go === "articles") S.filter = "todo"; render(); return; }
-  if (t.id === "actorBtn") return openActor();
+  if (t.id === "actorBtn" || t.id === "actorBtn2") return openActor();
+  if (t.dataset.review) {
+    t.disabled = true;
+    try { needActor(); const a = S.articles[t.dataset.review]; await write("articles/" + a.id, { content_reviewed: true, updated_at: now() }, true); await audit("中身を確認済みにした", "article", a.id, { content_reviewed: !!a.content_reviewed }, { content_reviewed: true }); toast("確認済みにしました"); }
+    catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); t.disabled = false; }
+    return;
+  }
+  if (t.dataset.saveurl) {
+    t.disabled = true;
+    try {
+      needActor(); const a = S.articles[t.dataset.saveurl]; const u = validateUrl($("#u-" + CSS.escape(a.id)).value);
+      if (u.kind === "empty") throw new VErr("URLを貼ってください");
+      if (u.kind === "invalid") throw new VErr("URL：" + u.msg);
+      await write("articles/" + a.id, { url: u.url, url_status: "オーナー提示", updated_at: now() }, true);
+      await audit("URLを登録", "article", a.id, { url: a.url ?? null, url_status: a.url_status }, { url: u.url, url_status: "オーナー提示" });
+      toast(u.msg.includes("除去") ? "保存しました（共有用の部分は自動で外しました）" : "保存しました");
+    } catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); t.disabled = false; }
+    return;
+  }
+  if (t.dataset.quick) {
+    t.disabled = true;
+    try { const to = t.dataset.to; await doTransition(S.links[t.dataset.quick], to, actor(), null); toast(`「${STATUS_LABEL[to] || to}」にしました`); }
+    catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); t.disabled = false; }
+    return;
+  }
+  if (t.dataset.pasteSrc) { S.pasteSource = t.dataset.pasteSrc; S.tab = "paste"; window.scrollTo(0, 0); render(); return; }
   if (t.dataset.filter) { S.filter = t.dataset.filter; render(); return; }
   if (t.dataset.window) { S.metricWindow = t.dataset.window; render(); return; }
   if (t.hasAttribute("data-new-article")) return openArticle(null);
