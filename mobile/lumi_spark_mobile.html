@@ -448,7 +448,8 @@ function viewHome() {
     <ul class="plain">${unreviewed.map((a) => `<li class="qrow"><span class="qtitle">${esc(a.title)}</span><button type="button" data-review="${esc(a.id)}">確認した</button></li>`).join("")}</ul>`)}
 
   ${step(3, "記事のURLを入れる", "すべての記事にURLが入りました。", !noUrl.length,
-    `<p class="small">noteで記事を開き、共有ボタン →「リンクをコピー」。下の欄に貼って「保存」を押します。</p>
+    `<div class="note">いちばん楽な方法：タイトルとURLが入った文章をまとめて貼ると、自動で読み取ります。<br><button type="button" class="spark" data-bulk style="margin-top:8px">まとめて貼り付け</button></div>
+    <p class="small">1本ずつ入れる場合は、noteで記事を開き、共有ボタン →「リンクをコピー」。下の欄に貼って「保存」を押します。</p>
     <ul class="plain">${noUrl.map((a) => `<li class="qcol"><span class="qtitle">${esc(a.title)}</span>
       ${a.title_status !== "確認済み" ? `<button type="button" class="ghost small-btn" data-open-article="${esc(a.id)}">タイトルが途中までです。正式タイトルを入れる →</button>` : ""}
       <div class="row nowrap"><input id="u-${esc(a.id)}" inputmode="url" placeholder="https://note.com/lumispark/n/..." value="${esc(a.url || "")}"><button type="button" class="primary" data-saveurl="${esc(a.id)}">保存</button></div></li>`).join("")}</ul>`)}
@@ -489,7 +490,7 @@ function viewArticles() {
   const hubIds = new Set(Object.values(S.hubs).map((h) => h.hub_article_id));
   const chips = [["all", "すべて"], ["todo", "要確認"], ["AI", "AI"], ["ORG", "組織"], ["REG", "地域"]];
   return `
-  <div class="row spread"><h1>記事</h1><button type="button" class="spark" data-new-article>＋ 記事を追加</button></div>
+  <div class="row spread"><h1>記事</h1><div class="row"><button type="button" class="spark" data-bulk>まとめて貼り付け</button><button type="button" data-new-article>＋ 1件追加</button></div></div>
   <p class="lead">タップすると、URL・本文確認・構造コード・数字を編集できます。</p>
   <div class="seg" style="margin-bottom:12px">${chips.map(([k, l]) => `<button type="button" data-filter="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div>
   <div class="stack">${shown.map((a) => `
@@ -810,6 +811,120 @@ async function saveRecommendation(srcId, rec) {
   return id;
 }
 
+
+/* ---------------- まとめて貼り付け（タイトル・URL・公開日時の自動読み取り。通信はしない） ---------------- */
+const NOTE_URL_RE = /https:\/\/note\.com\/[A-Za-z0-9_-]+\/n\/n[0-9a-f]{12}(?:[?#][^\s"'<>）)]*)?/g;
+const coreTitle = (t) => String(t || "").replace(/（以降未確認）$/, "").replace(/(…|\.\.\.)$/, "").trim();
+function jstFromDate(d) {
+  if (isNaN(d)) return null;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(d).map((x) => [x.type, x.value]));
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour === "24" ? "00" : parts.hour}:${parts.minute}`;
+}
+function cleanPastedTitle(t) {
+  let x = String(t || "").replace(NOTE_URL_RE, " ").replace(/#\S+/g, " ").replace(/@\S+/g, " ").trim();
+  x = x.split(/[｜|]/)[0].trim();
+  x = x.replace(/^[「『“"]+|[」』”"]+$/g, "").replace(/[\s:：\-–—]+$/, "").trim();
+  return x;
+}
+function parseBulk(text) {
+  const out = []; const seen = new Set();
+  if (/<item[\s>]/i.test(text)) {
+    const doc = new DOMParser().parseFromString(text, "text/xml");
+    doc.querySelectorAll("item").forEach((it) => {
+      const link = validateUrl(it.querySelector("link")?.textContent || "");
+      if (link.kind !== "note" || seen.has(link.url)) return; seen.add(link.url);
+      const pd = it.querySelector("pubDate")?.textContent;
+      out.push({ title: (it.querySelector("title")?.textContent || "").trim(), url: link.url, published_at: pd ? jstFromDate(new Date(pd)) : null });
+    });
+    return out;
+  }
+  const lines = text.split(/\r?\n/);
+  lines.forEach((line, i) => {
+    const urls = line.match(NOTE_URL_RE) || [];
+    urls.forEach((raw) => {
+      const v = validateUrl(raw); if (v.kind !== "note" || seen.has(v.url)) return; seen.add(v.url);
+      let title = cleanPastedTitle(line);
+      for (let j = i - 1; !title && j >= 0 && j >= i - 2; j--) title = cleanPastedTitle(lines[j]);
+      out.push({ title, url: v.url, published_at: null });
+    });
+  });
+  return out;
+}
+function nextArticleId() {
+  const n = Object.keys(S.articles).filter((k) => /^LS-A\d+$/.test(k)).map((k) => Number(k.slice(4))).reduce((a, b) => Math.max(a, b), 0);
+  return (k) => "LS-A" + String(n + k).padStart(3, "0");
+}
+function planBulk(items) {
+  const real = Object.values(S.articles).filter((a) => a.data_kind !== "sample");
+  const newId = nextArticleId(); let added = 0;
+  return items.map((it) => {
+    let a = real.find((x) => x.url && x.url === it.url);
+    if (!a && it.title) {
+      const t = it.title;
+      a = real.find((x) => { const c = coreTitle(x.title); return c.length >= 6 && (t.startsWith(c) || c.startsWith(t)); });
+    }
+    if (!a) {
+      if (!it.title) return { ...it, action: "skip", reason: "タイトルを読み取れませんでした" };
+      added += 1; return { ...it, action: "new", id: newId(added) };
+    }
+    const changes = {};
+    if (it.title && (a.title_status !== "確認済み" || coreTitle(a.title) !== it.title) && it.title !== a.title) changes.title = it.title;
+    if (it.title && a.title_status !== "確認済み") changes.title_status = "確認済み";
+    if (a.url !== it.url || !URL_USABLE.has(a.url_status)) { changes.url = it.url; changes.url_status = "オーナー提示"; }
+    if (it.published_at && !a.published_at) changes.published_at = it.published_at;
+    return { ...it, id: a.id, before: a, action: Object.keys(changes).length ? "update" : "same", changes };
+  });
+}
+function openBulk() {
+  openSheet("まとめて貼り付け", `
+  <div class="stack">
+    <div class="card">
+      <p class="small">記事のタイトルとURLが入った文章を、そのまま貼り付けてください。ページが自動で読み取り、登録済みの記事と照合します。途中までしか分からなかったタイトルも、続きが分かれば自動で直ります。</p>
+      <div class="note">貼れるものの例<br>・「タイトル　URL」を1行ずつ並べたメモ<br>・Xなどで共有したときの文章（「タイトル｜Lumi Spark｜note」とURL）<br>・noteのRSS（https://note.com/lumispark/rss）の中身（公開日時も入ります）</div>
+      <label class="f">ここに貼り付け<textarea id="bulkIn" rows="8" placeholder="社長がいなくなったら、会社は何日もつのか https://note.com/lumispark/n/..."></textarea></label>
+      <button type="button" class="primary" id="bulkRead">読み取る</button>
+    </div>
+    <div id="bulkOut"></div>
+  </div>`, (el) => {
+    let plan = [];
+    el.querySelector("#bulkRead").addEventListener("click", () => {
+      plan = planBulk(parseBulk(el.querySelector("#bulkIn").value));
+      const label = { update: ["更新", "accent"], new: ["新しい記事として追加", "ok"], same: ["変更なし", ""], skip: ["読み取れず", "bad"] };
+      const n = plan.filter((x) => x.action === "update" || x.action === "new").length;
+      el.querySelector("#bulkOut").innerHTML = plan.length ? `<div class="card">
+        <h2>読み取り結果（${plan.length}件）</h2>
+        <ul class="plain">${plan.map((x) => `<li class="qcol"><span class="pill ${label[x.action][1]}">${label[x.action][0]}</span>
+          <div class="title-line">${esc(x.title || "（タイトル不明）")}</div>
+          ${x.action === "update" && x.changes.title ? `<div class="small">元のタイトル：${esc(x.before.title)}</div>` : ""}
+          <div class="small">${esc(x.url)}${x.published_at ? `　公開：${esc(x.published_at)}` : ""}</div>
+          ${x.reason ? `<div class="small">${esc(x.reason)}</div>` : ""}</li>`).join("")}</ul>
+        ${n ? `<button type="button" class="spark" id="bulkSave">${n}件を保存する</button>` : '<p class="small">保存する変更はありません。</p>'}
+      </div>` : '<div class="note warn">noteの記事URL（https://note.com/〜/n/n〜）が見つかりませんでした。</div>';
+      const btn = el.querySelector("#bulkSave");
+      if (btn) btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          const who = needActor(); let done = 0;
+          for (const x of plan) {
+            if (x.action === "update") {
+              const before = Object.fromEntries(Object.keys(x.changes).map((k) => [k, x.before[k] ?? null]));
+              await write("articles/" + x.id, { ...x.changes, updated_at: now() }, true);
+              await audit("まとめて貼り付けで更新", "article", x.id, before, x.changes); done++;
+            } else if (x.action === "new") {
+              const doc = { id: x.id, title: x.title, title_status: "確認済み", url: x.url, url_status: "オーナー提示", published_at: x.published_at || null,
+                content_reviewed: false, data_kind: "real", verification_status: "一部確認", theme: null, topic_tags: null,
+                source: `まとめて貼り付けで登録（${who}）`, notes: "テーマ・タグは未設定。記事画面の「くわしく設定する」で入れると関連記事の推薦に使われます。", created_at: now(), updated_at: now() };
+              await write("articles/" + x.id, doc);
+              await audit("まとめて貼り付けで登録", "article", x.id, null, doc); done++;
+            }
+          }
+          toast(`${done}件を保存しました`); closeSheet();
+        } catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); btn.disabled = false; }
+      });
+    });
+  });
+}
+
 /* ---------------- イベント ---------------- */
 document.addEventListener("click", async (ev) => {
   const t = ev.target.closest("button, .card.tap"); if (!t) return;
@@ -844,6 +959,7 @@ document.addEventListener("click", async (ev) => {
   if (t.dataset.filter) { S.filter = t.dataset.filter; render(); return; }
   if (t.dataset.window) { S.metricWindow = t.dataset.window; render(); return; }
   if (t.hasAttribute("data-new-article")) return openArticle(null);
+  if (t.hasAttribute("data-bulk")) return openBulk();
   if (t.hasAttribute("data-new-metric") && !t.closest(".sheet")) return openMetric(null);
   if (t.dataset.openArticle) return openArticle(t.dataset.openArticle);
   if (t.dataset.openLink) return openLink(t.dataset.openLink);
