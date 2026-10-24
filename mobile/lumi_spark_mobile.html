@@ -1,0 +1,810 @@
+<title>Lumi Spark Growth OS</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&display=swap">
+<style>
+/* Layout: one-column phone tool — sticky header, content cards, bottom tab bar. Ink-blue workbench with a single amber "spark". */
+:root {
+  --bg: #f3f4f7;
+  --surface: #ffffff;
+  --ink: #1b2233;
+  --muted: #5d6578;
+  --line: #dde1ea;
+  --accent: #c47a12;
+  --accent-soft: #fbefdc;
+  --ink-soft: #e8ebf3;
+  --ok: #2e7d4f;
+  --ok-soft: #e3f3e9;
+  --warn: #a35a00;
+  --warn-soft: #fff2df;
+  --bad: #b3261e;
+  --bad-soft: #fde8e6;
+  --font-display: "Zen Kaku Gothic New", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", system-ui, sans-serif;
+  --font-body: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151f; --surface: #1a2030; --ink: #e7eaf2; --muted: #9aa3b8; --line: #2c3447;
+    --accent: #f0a640; --accent-soft: #3a2a12; --ink-soft: #232b3d;
+    --ok: #6fcf97; --ok-soft: #173325; --warn: #f2b25c; --warn-soft: #3a2a12; --bad: #ff8a80; --bad-soft: #3d1a18;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151f; --surface: #1a2030; --ink: #e7eaf2; --muted: #9aa3b8; --line: #2c3447;
+  --accent: #f0a640; --accent-soft: #3a2a12; --ink-soft: #232b3d;
+  --ok: #6fcf97; --ok-soft: #173325; --warn: #f2b25c; --warn-soft: #3a2a12; --bad: #ff8a80; --bad-soft: #3d1a18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap {
+  max-width: 720px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px 110px;
+}
+header.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+header.top .inner {
+  max-width: 720px; margin: 0 auto; display: flex; align-items: center; gap: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px;
+}
+.brand { font-family: var(--font-display); font-weight: 700; font-size: 17px; letter-spacing: .02em; flex: 1; min-width: 0; }
+.brand span { color: var(--accent); }
+.actor { font-size: 12px; color: var(--muted); background: var(--ink-soft); border: 0; border-radius: 999px; padding: 4px 10px; font-family: inherit; }
+h1 { font-family: var(--font-display); font-size: 22px; margin: 8px 0 4px; text-wrap: balance; }
+h2 { font-family: var(--font-display); font-size: 16px; margin: 0; text-wrap: balance; }
+.lead { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.card.tap { cursor: pointer; }
+.card.tap:active { background: var(--ink-soft); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.spread { justify-content: space-between; }
+.small { font-size: 12px; color: var(--muted); }
+.title-line { font-weight: 600; overflow-wrap: anywhere; }
+.pill { display: inline-flex; align-items: center; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--ink-soft); color: var(--muted); white-space: nowrap; letter-spacing: .02em; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.accent { background: var(--accent-soft); color: var(--accent); }
+.path { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 12px; color: var(--muted); }
+.path b { color: var(--ink); font-weight: 600; }
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.stat .n { font-family: var(--font-display); font-size: 24px; font-variant-numeric: tabular-nums; }
+.stat .l { font-size: 12px; color: var(--muted); }
+.stat.attn .n { color: var(--accent); }
+ul.plain { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+ul.blockers { margin: 0; padding-left: 18px; font-size: 13px; color: var(--warn); }
+button, .btn {
+  font-family: inherit; font-size: 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink); padding: 9px 14px; cursor: pointer; min-height: 40px;
+}
+button.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+button.spark { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.ghost { background: transparent; }
+button.danger { color: var(--bad); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); min-width: 0; }
+input, select, textarea {
+  font-family: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; width: 100%; min-width: 0;
+}
+textarea { min-height: 70px; resize: vertical; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 560px) { .grid4 { grid-template-columns: repeat(4, 1fr); } .stats { grid-template-columns: repeat(4, 1fr); } }
+.check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.check input { width: 20px; height: 20px; }
+.note { font-size: 13px; padding: 10px 12px; border-radius: 10px; background: var(--ink-soft); color: var(--ink); }
+.note.warn { background: var(--warn-soft); color: var(--warn); }
+.note.bad { background: var(--bad-soft); color: var(--bad); }
+.note.ok { background: var(--ok-soft); color: var(--ok); }
+pre.paste { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-body); font-size: 14px; background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 12px; margin: 0; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; font-size: 13px; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+td.num, th.num { text-align: right; }
+.missing { color: var(--muted); font-size: 12px; }
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+}
+nav.tabs .inner { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); }
+nav.tabs button { border: 0; border-radius: 0; background: transparent; font-size: 11px; color: var(--muted); padding: 8px 2px 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 54px; }
+nav.tabs button .ico { font-size: 18px; line-height: 1; font-family: var(--font-display); }
+nav.tabs button[aria-current="page"] { color: var(--accent); font-weight: 700; }
+.sheet { position: fixed; inset: 0; z-index: 20; background: var(--bg); overflow-y: auto; padding-top: env(safe-area-inset-top, 0px); }
+.sheet .bar { position: sticky; top: 0; z-index: 2; background: var(--surface); border-bottom: 1px solid var(--line); }
+.sheet .bar .inner { max-width: 720px; margin: 0 auto; display: flex; gap: 8px; align-items: center; padding-block: 8px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(70px + env(safe-area-inset-bottom, 0px)); z-index: 30;
+  background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 14px; font-size: 13px; width: max-content; max-width: calc(100% - 32px); }
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg button { min-height: 34px; padding: 5px 12px; font-size: 13px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.hist { font-size: 12px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 8px; }
+@media (prefers-reduced-motion: no-preference) { .card.tap { transition: background .12s; } }
+</style>
+
+<header class="top"><div class="inner">
+  <div class="brand">Lumi Spark <span>Growth OS</span></div>
+  <button class="actor" id="actorBtn" type="button">担当者：未設定</button>
+</div></header>
+
+<main class="wrap" id="main">
+  <div class="card" id="boot">
+    <h2>読み込んでいます</h2>
+    <p class="small">記事・ハブ・リンク提案を読み込んでいます。表示されない場合は、claude.aiにログインした状態で開き直してください。</p>
+  </div>
+</main>
+
+<nav class="tabs" aria-label="画面の切り替え"><div class="inner">
+  <button type="button" data-tab="home"><span class="ico">◎</span>ホーム</button>
+  <button type="button" data-tab="articles"><span class="ico">≡</span>記事</button>
+  <button type="button" data-tab="links"><span class="ico">⇄</span>リンク</button>
+  <button type="button" data-tab="paste"><span class="ico">✎</span>貼り付け文</button>
+  <button type="button" data-tab="metrics"><span class="ico">▤</span>数字</button>
+</div></nav>
+
+<div id="sheetHost"></div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------------- マスタ（執筆基準Ver.6.1・運用台帳Ver.0.1） ---------------- */
+const THEMES = { ORG: "組織・人材", AI: "AI・技術", MKT: "マーケ・顧客", REG: "地域", FIN: "経営・財務", EVENT: "出来事", META: "Lumi Spark" };
+const PURPOSES = ["認知", "共感・信頼", "経営・組織", "専門・実務", "地域・活動", "相談・仕事接続", "読者定着・世界観"];
+const TITLE_CODES = { T01: "QUESTION", T02: "PARADOX", T03: "NUMBER", T04: "TIME_SHIFT", T05: "HUMAN_CONFLICT", T06: "NEWS_UPDATE", T07: "CONCEPT", T08: "STORY", T09: "PAIN", T10: "REFRAME" };
+const H_CODES = ["H0", "H1", "H2", "H3"], V_CODES = ["V0", "V1", "V2", "V3"], C_CODES = ["C0", "C1", "C2", "C3"];
+const STAGES = ["認知", "信頼", "対話", "参加意向", "有料参加", "継続", "実践成果"];
+const LINK_FLOW = ["提案", "確認", "承認", "note反映", "表示確認"];
+const REJECTED = "却下";
+const URL_STATUSES = ["未確認", "オーナー提示", "表示確認済み"];
+const URL_USABLE = new Set(["オーナー提示", "表示確認済み"]);
+const TITLE_STATUSES = ["確認済み", "一部のみ", "未確認"];
+const WINDOWS = { "24h": "公開後24時間値", "72h": "公開後72時間値", cumulative: "累積値" };
+const TOLERANCE = { "24h": [18, 30], "72h": [60, 84] };
+const METRIC_FIELDS = [["imp", "IMP"], ["pv", "PV"], ["likes", "スキ"], ["comments", "コメント"], ["meaningful", "有意味コメント"], ["follows", "フォロー増"], ["consultations", "相談件数"], ["membership", "メンバーシップ参加"]];
+const POSITIONS = ["本文末の関連記事ブロック", "結びの直前", "該当する論点の段落直後", "冒頭の導入直後"];
+const WEIGHTS = { theme: 3, tag: 6, hub: 2, next: 1.5, same: 0.5 };
+const READER_VALUE = {
+  "認知": "テーマの全体像をつかみ、自分に関係する話かを判断できる",
+  "共感・信頼": "自分の状況に近い場面を通じて、言葉にできなかった違和感を整理できる",
+  "経営・組織": "判断と責任の置き方を、組織の構造から考え直せる",
+  "専門・実務": "現場で試せる具体的な手順や判断基準が得られる",
+  "地域・活動": "地域や業界の動きを、自分の仕事との関係で捉え直せる",
+  "相談・仕事接続": "自社の課題を整理し、相談すべきかを判断できる",
+  "読者定着・世界観": "Lumi Sparkが考え続けている問いの全体像が見える",
+};
+const ANCHOR_BY_THEME = {
+  AI: "AIに仕事を任せることを、もう一歩具体的に考えたい方へ", ORG: "組織と責任の関係を、別の角度から考えたい方へ",
+  REG: "地域の産業のこれからを、もう少し考えてみたい方へ", MKT: "お客さまとの関係づくりを考えたい方へ",
+  FIN: "経営の数字と判断のつながりを考えたい方へ", EVENT: "この出来事の背景をもう少し知りたい方へ", META: "Lumi Sparkの取り組みをもう少し知りたい方へ",
+};
+const LEAD_BY_THEME = {
+  AI: "AIに仕事を任せることを、もう少し具体的に考えたい方へ。関連記事では、{focus}掘り下げています。",
+  ORG: "組織と責任のことを、もう一歩踏み込んで考えたい方へ。関連記事では、{focus}掘り下げています。",
+  REG: "地域の産業がこの先どうなるのか、一緒に考えたい方へ。関連記事では、{focus}掘り下げています。",
+};
+const FOCUS_BY_PURPOSE = { "認知": "全体像", "共感・信頼": "現場の実感", "経営・組織": "経営判断", "専門・実務": "実際の業務設計", "地域・活動": "地域の現場", "相談・仕事接続": "具体的な課題整理", "読者定着・世界観": "これまでの問い" };
+const URL_PLACEHOLDER = "［URL未確認：このまま貼り付けないでください］";
+
+/* ---------------- 状態 ---------------- */
+const S = { db: null, ready: false, readOnly: false, tab: "home", articles: {}, hubs: {}, links: {}, metrics: {}, account: {}, rankings: {}, audit: [], filter: "all", pasteSource: null, metricWindow: "cumulative", loaded: new Set() };
+const TABS = ["home", "articles", "links", "paste", "metrics"];
+
+/* ---------------- 小道具 ---------------- */
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const splitTags = (v) => String(v || "").split(/[,、]/).map((t) => t.trim()).filter(Boolean);
+const now = () => { const d = new Date(); const p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+const fmt = (v) => (v === null || v === undefined ? '<span class="missing">未計測</span>' : Number(v).toLocaleString("ja-JP"));
+const fmtP = (v) => (v === null ? '<span class="missing">計算不能</span>' : v.toFixed(2));
+function storeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function storeSet(k, v) { try { localStorage.setItem(k, v); } catch { /* 保存できなくても動作は続ける */ } }
+function toast(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
+class VErr extends Error {}
+
+function actor() { return (storeGet("lumi.actor") || "").trim(); }
+function needActor() { const a = actor(); if (!a) { openActor(); throw new VErr("先に担当者名を設定してください（操作履歴に記録します）"); } return a; }
+
+function validateUrl(raw) {
+  let t = String(raw ?? "").trim();
+  if (!t) return { kind: "empty", url: null, msg: "URLなし" };
+  if (/\s/.test(t)) return { kind: "invalid", url: null, msg: "URLに空白が含まれています" };
+  if (!t.startsWith("https://")) return { kind: "invalid", url: null, msg: "https:// で始まるURLではありません" };
+  let stripped = "";
+  if (t.startsWith("https://note.com/")) {
+    const base = t.split("#")[0].split("?")[0].replace(/\/+$/, "");
+    if (base !== t) { stripped = "（共有用パラメータを除去）"; t = base; }
+    const m = t.match(/^https:\/\/note\.com\/([A-Za-z0-9_-]+)\/n\/n[0-9a-f]{12}$/);
+    if (!m) return { kind: "invalid", url: null, msg: "note記事URLの形式（/ユーザー名/n/nXXXXXXXXXXXX）ではありません" };
+    return { kind: "note", url: t, msg: (m[1] === "lumispark" ? "note記事URLの形式です" : "作成者IDが lumispark ではありません（要確認）") + stripped };
+  }
+  if (/^https:\/\/[A-Za-z0-9.-]+\.[A-Za-z]{2,}(\/\S*)?$/.test(t)) return { kind: "other", url: t, msg: "note記事以外のURLです（要確認）" };
+  return { kind: "invalid", url: null, msg: "URLの形式が不正です" };
+}
+function parseCount(v, label) {
+  const t = String(v ?? "").trim().replace(/,/g, "");
+  if (!t) return null;
+  if (!/^\d+$/.test(t)) throw new VErr(`${label}：「${v}」は正確な数値ではありません。分からない場合は空欄にしてください`);
+  return Number(t);
+}
+function normDT(v) { const t = String(v || "").trim(); if (!t) return null; const m = t.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/); if (!m) throw new VErr(`日時「${t}」を解釈できません`); return m[4] ? `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}` : `${m[1]}-${m[2]}-${m[3]}`; }
+const hasTime = (v) => !!v && v.length > 10;
+const toDate = (v) => new Date(v.replace(" ", "T") + (hasTime(v) ? ":00" : "T00:00:00"));
+const toLocalInput = (v) => (v && hasTime(v) ? v.replace(" ", "T") : "");
+const proxy = (n, d) => (n === null || n === undefined || d === null || d === undefined || d === 0 ? null : Math.round((n / d) * 10000) / 100);
+
+/* ---------------- 書き込み（すべて操作履歴へ） ---------------- */
+async function audit(action, entity, entityId, before, after, approver, comment) {
+  try { await S.db.collection("audit").add({ at: now(), actor: actor(), action, entity, entity_id: entityId, before: before ?? null, after: after ?? null, approver: approver || null, comment: comment || null }); }
+  catch (e) { console.warn("audit", e); }
+}
+async function write(path, data, merge) {
+  if (!S.db) throw new VErr("保存機能が使えません。claude.aiで開き直してください");
+  try { merge ? await S.db.doc(path).update(data) : await S.db.doc(path).set(data); }
+  catch (e) {
+    if (e && e.code === "invalid_argument") { S.readOnly = true; throw new VErr("このページを編集する権限がありません（閲覧のみ）"); }
+    if (e && e.code === "quota_exceeded") throw new VErr("保存容量の上限に達しました。古い操作履歴などを整理してください");
+    throw new VErr("保存できませんでした。通信状態を確認して、もう一度お試しください");
+  }
+}
+
+/* ---------------- 判定ロジック（パソコン版と同じ規則） ---------------- */
+function linkBlockers(l) {
+  const out = [];
+  for (const [role, id] of [["リンク元", l.source], ["リンク先", l.target]]) {
+    const a = S.articles[id];
+    if (!a) { out.push(`${role}の記事が見つかりません`); continue; }
+    if (a.data_kind === "sample") out.push(`${role}がサンプル記事`);
+    if (!a.url || !URL_USABLE.has(a.url_status)) out.push(`${role}のURLが未確認`);
+    if (!a.content_reviewed) out.push(`${role}の本文内容が未確認`);
+    if (a.title_status !== "確認済み") out.push(`${role}のタイトルが未照合`);
+  }
+  return out;
+}
+function readiness(l) {
+  const b = linkBlockers(l);
+  const approved = ["承認", "note反映", "表示確認"].includes(l.status);
+  let label, cls;
+  if (l.status === REJECTED) { label = "却下"; cls = ""; }
+  else if (b.length) { label = "仮案（本番反映不可）"; cls = "warn"; }
+  else if (!approved) { label = "承認待ち"; cls = "accent"; }
+  else if (l.status === "承認") { label = "承認済み・note反映待ち"; cls = "ok"; }
+  else { label = l.status + "済み"; cls = "ok"; }
+  return { label, cls, blockers: b, ready: approved && !b.length };
+}
+function nextStatuses(s) {
+  if (s === REJECTED) return ["提案"];
+  const i = LINK_FLOW.indexOf(s);
+  if (i < 0) return [];
+  const n = LINK_FLOW.slice(i + 1, i + 2);
+  if (s !== "表示確認") n.push(REJECTED);
+  return n;
+}
+function linkIssues(src, tgt) {
+  const out = [];
+  if (!src || !tgt) return ["リンク元・リンク先を選んでください"];
+  if (src === tgt) out.push("自己リンクです");
+  if (!S.articles[src] || !S.articles[tgt]) out.push("記事が見つかりません");
+  const dup = Object.values(S.links).find((l) => l.source === src && l.target === tgt);
+  if (dup) out.push(`重複リンクです（${dup.id}：${dup.status}）`);
+  return out;
+}
+function recommend(srcId, limit = 3) {
+  const src = S.articles[srcId]; if (!src) return [];
+  const hubs = Object.values(S.hubs);
+  const srcHubs = hubs.filter((h) => h.hub_article_id === srcId);
+  const hubTopics = new Set(srcHubs.flatMap((h) => splitTags(h.related_topics)));
+  const srcTerms = new Set([...splitTags(src.topic_tags), ...hubTopics]);
+  const existing = new Set(Object.values(S.links).filter((l) => l.source === srcId).map((l) => l.target));
+  const si = STAGES.indexOf(src.funnel_stage);
+  const res = [];
+  for (const c of Object.values(S.articles)) {
+    if (c.id === srcId || existing.has(c.id)) continue;
+    if (src.data_kind !== "sample" && c.data_kind === "sample") continue;
+    const cTerms = splitTags(c.topic_tags);
+    const shared = cTerms.filter((t) => srcTerms.has(t));
+    const union = new Set([...srcTerms, ...cTerms]);
+    let score = 0; const why = [];
+    if (src.theme && src.theme === c.theme) { score += WEIGHTS.theme; why.push(`テーマが同じ（${c.theme}）`); }
+    if (shared.length) { score += WEIGHTS.tag * shared.length / union.size; why.push("共通タグ：" + shared.join("、")); }
+    const hubMatch = cTerms.filter((t) => hubTopics.has(t));
+    if (hubMatch.length) { score += WEIGHTS.hub; why.push("ハブの関連テーマに該当：" + hubMatch.join("、")); }
+    const ci = STAGES.indexOf(c.funnel_stage);
+    const isNext = si >= 0 && ci === si + 1;
+    if (isNext) { score += WEIGHTS.next; why.push(`読者の次の段階へ（${src.funnel_stage}→${c.funnel_stage}）`); }
+    else if (si >= 0 && si === ci) score += WEIGHTS.same;
+    if (!why.length) continue;
+    const pos = srcHubs.length ? POSITIONS[0] : isNext ? POSITIONS[1] : (src.theme && src.theme === c.theme ? POSITIONS[2] : POSITIONS[0]);
+    res.push({
+      target: c.id, score: Math.round(score * 100) / 100, reason: why.join(" / "),
+      reader_value: READER_VALUE[c.primary_purpose] || "関連する論点を別の角度から深められる",
+      anchor_text: shared.length ? `「${shared[0]}」を、もう一歩考えたい方へ` : (ANCHOR_BY_THEME[c.theme] || "あわせて読みたい記事"),
+      insert_position: pos, hub_id: srcHubs[0]?.id || null,
+      basis: src.content_reviewed && c.content_reviewed ? "本文確認済みの記事情報" : "タイトル・タグからのルール推定（本文未確認）",
+    });
+  }
+  return res.sort((a, b) => b.score - a.score || a.target.localeCompare(b.target)).slice(0, limit);
+}
+function guidance(srcId) {
+  const src = S.articles[srcId];
+  const links = Object.values(S.links).filter((l) => l.source === srcId && l.status !== REJECTED).sort((a, b) => a.id.localeCompare(b.id));
+  if (!src || !links.length) return { text: "", warnings: ["この記事にはリンク提案がありません"], ready: false };
+  const srcTags = new Set(splitTags(src.topic_tags));
+  const focuses = []; const blocks = []; const warnings = []; let allReady = true;
+  for (const l of links) {
+    const t = S.articles[l.target]; if (!t) continue;
+    const r = readiness(l); if (!r.ready) { allReady = false; warnings.push(`${l.id}（→${t.title}）：${r.label}${r.blockers.length ? "／" + r.blockers.join("、") : ""}`); }
+    let f = FOCUS_BY_PURPOSE[t.primary_purpose];
+    if (!f) { const tags = splitTags(t.topic_tags); const sh = tags.filter((x) => srcTags.has(x)); f = (sh[0] || tags[0]) || null; }
+    if (f && !focuses.includes(f)) focuses.push(f);
+    const usable = t.url && URL_USABLE.has(t.url_status) && t.data_kind !== "sample";
+    blocks.push([l.anchor_text, `▼${t.title}`, usable ? t.url : URL_PLACEHOLDER].filter(Boolean).join("\n"));
+  }
+  const focus = focuses.length ? focuses.slice(0, 2).join("や") + "の視点から" : "別の角度から";
+  const lead = (LEAD_BY_THEME[src.theme] || "このテーマをもう少し考えたい方へ。関連記事では、{focus}掘り下げています。").replace("{focus}", focus);
+  if (!allReady) warnings.unshift("この文章は仮案です。本番のnoteへは貼り付けないでください。");
+  return { text: lead + "\n\n" + blocks.join("\n\n"), warnings, ready: allReady };
+}
+function pending() {
+  const real = Object.values(S.articles).filter((a) => a.data_kind !== "sample");
+  return {
+    url: real.filter((a) => !URL_USABLE.has(a.url_status)),
+    title: real.filter((a) => a.title_status !== "確認済み"),
+    body: real.filter((a) => !a.content_reviewed),
+    codes: real.filter((a) => !(a.title_structure && a.human_code && a.perspective_code && a.specificity_code)),
+    links: Object.values(S.links).filter((l) => l.status === "提案" || l.status === "確認"),
+  };
+}
+
+/* ---------------- 画面 ---------------- */
+function render() {
+  document.querySelectorAll("nav.tabs button").forEach((b) => b.setAttribute("aria-current", b.dataset.tab === S.tab ? "page" : "false"));
+  const a = actor();
+  $("#actorBtn").textContent = a ? `担当者：${a}` : "担当者：未設定";
+  const main = $("#main");
+  if (!S.ready) return;
+  main.innerHTML = ({ home: viewHome, articles: viewArticles, links: viewLinks, paste: viewPaste, metrics: viewMetrics })[S.tab]();
+}
+function articleTitle(id) { return S.articles[id]?.title || id; }
+function statusPill(a) {
+  const u = URL_USABLE.has(a.url_status) ? `<span class="pill ok">URL ${esc(a.url_status)}</span>` : `<span class="pill warn">URL ${esc(a.url_status)}</span>`;
+  const b = a.content_reviewed ? '<span class="pill ok">本文確認済み</span>' : '<span class="pill">本文未確認</span>';
+  const t = a.title_status === "確認済み" ? "" : `<span class="pill warn">タイトル${esc(a.title_status)}</span>`;
+  const k = a.data_kind === "sample" ? '<span class="pill bad">サンプル</span>' : "";
+  return u + b + t + k;
+}
+
+function viewHome() {
+  const p = pending();
+  const links = Object.values(S.links);
+  const ready = links.filter((l) => readiness(l).ready).length;
+  const hubs = Object.values(S.hubs).sort((x, y) => (x.sort_order || 0) - (y.sort_order || 0));
+  const todo = [
+    ["本文を確認していない記事", p.body.length, "articles"], ["URLが未確認の記事", p.url.length, "articles"],
+    ["承認を待つリンク提案", p.links.length, "links"], ["構造コード未設定の記事", p.codes.length, "articles"],
+  ];
+  return `
+  <h1>今日の作業台</h1>
+  <p class="lead">記事を公開するほど、読者との関係が積み上がる仕組み。提案は人が承認するまで公開されません。</p>
+  <div class="stats">
+    <div class="stat"><div class="n">${Object.keys(S.articles).length}</div><div class="l">記事</div></div>
+    <div class="stat"><div class="n">${links.length}</div><div class="l">リンク提案</div></div>
+    <div class="stat attn"><div class="n">${ready}</div><div class="l">noteへ反映できるリンク</div></div>
+    <div class="stat"><div class="n">${Object.keys(S.metrics).length}</div><div class="l">記録した数字</div></div>
+  </div>
+  <div class="stack" style="margin-top:14px">
+    <div class="card"><h2>次にやること</h2><ul class="plain">
+      ${todo.map(([l, n, tab]) => `<li class="row spread"><span>${l}</span><button type="button" class="ghost" data-go="${tab}">${n}件 →</button></li>`).join("")}
+    </ul></div>
+    ${hubs.map((h) => {
+      const art = S.articles[h.hub_article_id];
+      const hl = links.filter((l) => l.source === h.hub_article_id);
+      return `<div class="card tap" data-open-article="${esc(h.hub_article_id || "")}">
+        <div class="row spread"><h2>${esc(h.name)}</h2><span class="pill accent">${esc(h.status || "")}</span></div>
+        <div class="title-line">${esc(art ? art.title : "（ハブ記事未設定）")}</div>
+        ${art ? `<div class="row">${statusPill(art)}</div>` : ""}
+        <div class="path"><b>${esc(h.name)}</b>${(h.steps || []).map((s) => `→ <span>${esc(s.label)}</span>`).join(" ")}</div>
+        <div class="small">関連記事の提案 ${hl.length}件（反映できるもの ${hl.filter((l) => readiness(l).ready).length}件）</div>
+      </div>`;
+    }).join("")}
+    <div class="card"><h2>最近の操作</h2>
+      ${S.audit.length ? `<ul class="plain">${S.audit.slice(0, 8).map((x) => `<li class="hist">${esc(x.at)}　${esc(x.actor || "")}　${esc(x.action)}${x.approver ? `（承認者：${esc(x.approver)}）` : ""}</li>`).join("")}</ul>` : '<p class="small">まだ操作はありません。</p>'}
+    </div>
+  </div>`;
+}
+
+function viewArticles() {
+  const list = Object.values(S.articles).sort((a, b) => a.id.localeCompare(b.id));
+  const f = S.filter;
+  const shown = list.filter((a) => f === "all" || (f === "todo" && (!a.content_reviewed || !URL_USABLE.has(a.url_status))) || a.theme === f);
+  const hubIds = new Set(Object.values(S.hubs).map((h) => h.hub_article_id));
+  const chips = [["all", "すべて"], ["todo", "要確認"], ["AI", "AI"], ["ORG", "組織"], ["REG", "地域"]];
+  return `
+  <div class="row spread"><h1>記事</h1><button type="button" class="spark" data-new-article>＋ 記事を追加</button></div>
+  <p class="lead">タップすると、URL・本文確認・構造コード・数字を編集できます。</p>
+  <div class="seg" style="margin-bottom:12px">${chips.map(([k, l]) => `<button type="button" data-filter="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div>
+  <div class="stack">${shown.map((a) => `
+    <div class="card tap" data-open-article="${esc(a.id)}">
+      <div class="row spread"><span class="small">${esc(a.id)}${a.theme ? "・" + esc(a.theme) : ""}</span>${hubIds.has(a.id) ? '<span class="pill accent">ハブ</span>' : ""}</div>
+      <div class="title-line">${esc(a.title)}</div>
+      <div class="row">${statusPill(a)}</div>
+    </div>`).join("") || '<p class="small">該当する記事はありません。</p>'}
+  </div>`;
+}
+
+function viewLinks() {
+  const groups = {};
+  Object.values(S.links).sort((a, b) => a.id.localeCompare(b.id)).forEach((l) => (groups[l.source] ||= []).push(l));
+  const opts = Object.values(S.articles).sort((a, b) => a.id.localeCompare(b.id)).map((a) => `<option value="${esc(a.id)}">${esc(a.title)}</option>`).join("");
+  return `
+  <h1>リンク提案</h1>
+  <p class="lead">提案 → 確認 → 承認 → 人がnoteに反映 → 表示確認、の順に1段ずつ進めます。</p>
+  <div class="card">
+    <h2>関連記事を推薦してもらう</h2>
+    <label class="f">リンク元の記事<select id="recSource"><option value="">選んでください</option>${opts}</select></label>
+    <div id="recOut"></div>
+  </div>
+  <div class="stack" style="margin-top:12px">
+  ${Object.entries(groups).map(([src, ls]) => `
+    <div class="card">
+      <div class="small">リンク元</div><div class="title-line">${esc(articleTitle(src))}</div>
+      <div class="stack">${ls.map((l) => { const r = readiness(l); return `
+        <div class="card tap" data-open-link="${esc(l.id)}" style="background:var(--bg)">
+          <div class="row spread"><span class="small">${esc(l.id)}</span><span class="row"><span class="pill">${esc(l.status)}</span><span class="pill ${r.cls}">${esc(r.label)}</span></span></div>
+          <div class="title-line">→ ${esc(articleTitle(l.target))}</div>
+          <div class="small">${esc(l.reason || "")}</div>
+        </div>`; }).join("")}</div>
+    </div>`).join("") || '<p class="small">リンク提案はまだありません。</p>'}
+  </div>`;
+}
+
+function viewPaste() {
+  const sources = [...new Set(Object.values(S.links).map((l) => l.source))].sort();
+  if (!S.pasteSource || !sources.includes(S.pasteSource)) S.pasteSource = sources[0] || null;
+  const g = S.pasteSource ? guidance(S.pasteSource) : { text: "", warnings: [], ready: false };
+  return `
+  <h1>note貼り付け文</h1>
+  <p class="lead">記事の末尾などに貼る、関連記事の案内文です。noteへの反映はご自身で行います。</p>
+  <div class="card">
+    <label class="f">リンク元の記事<select id="pasteSource">${sources.map((s) => `<option value="${esc(s)}" ${s === S.pasteSource ? "selected" : ""}>${esc(articleTitle(s))}</option>`).join("")}</select></label>
+    ${g.ready ? '<div class="note ok">すべてのリンクが承認済みで、URL・本文確認もそろっています。</div>' : ""}
+    ${g.warnings.map((w, i) => `<div class="note ${i === 0 && !g.ready ? "bad" : "warn"}">${esc(w)}</div>`).join("")}
+    ${g.text ? `<pre class="paste" id="pasteText">${esc(g.text)}</pre>
+    <button type="button" class="primary" data-copy>${g.ready ? "文章をコピー" : "仮案をコピー（確認用）"}</button>` : ""}
+  </div>`;
+}
+
+function viewMetrics() {
+  const w = S.metricWindow;
+  const rows = Object.values(S.metrics).filter((m) => m.window === w).sort((a, b) => (a.article_id + a.measured_at).localeCompare(b.article_id + b.measured_at));
+  const warn = [];
+  if (rows.length > 1) {
+    if (w === "cumulative") warn.push("累積値は記事ごとに公開からの日数が違うため、並べて優劣を比べないでください。");
+    if (new Set(rows.map((r) => r.measured_at)).size > 1 && w === "cumulative") warn.push("計測した日時が違う値が混ざっています。");
+    if (new Set(rows.map((r) => r.source)).size > 1) warn.push("出典（見た画面・資料）が違う値が混ざっています。");
+  }
+  const acc = Object.values(S.account).sort((a, b) => String(a.measured_at).localeCompare(String(b.measured_at)));
+  const rank = Object.values(S.rankings)[0];
+  return `
+  <div class="row spread"><h1>数字</h1><button type="button" class="spark" data-new-metric>＋ 数字を記録</button></div>
+  <p class="lead">空欄は「未計測」で、0とは別に扱います。Proxyは厳密なクリック率や読了率ではなく、同じ条件の記事どうしを比べるための目安です。</p>
+  <div class="seg" style="margin-bottom:10px">${Object.entries(WINDOWS).map(([k, l]) => `<button type="button" data-window="${k}" aria-pressed="${w === k}">${l}</button>`).join("")}</div>
+  ${warn.map((x) => `<div class="note warn" style="margin-bottom:8px">${esc(x)}</div>`).join("")}
+  <div class="card"><div class="tablewrap"><table>
+    <thead><tr><th>記事</th><th>計測日時</th><th class="num">PV</th><th class="num">スキ</th><th class="num">コメント</th><th class="num">スキ/PV</th><th class="num">IMP→PV</th><th>出典</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr><td>${esc(articleTitle(r.article_id).slice(0, 18))}</td><td>${esc(r.measured_at)}</td><td class="num">${fmt(r.pv)}</td><td class="num">${fmt(r.likes)}</td><td class="num">${fmt(r.comments)}</td><td class="num">${fmtP(proxy(r.likes, r.pv))}</td><td class="num">${fmtP(proxy(r.pv, r.imp))}</td><td class="small">${esc(String(r.source || "").slice(0, 24))}</td></tr>`).join("") || `<tr><td colspan="8" class="small">${esc(WINDOWS[w])}はまだ記録がありません。</td></tr>`}</tbody>
+  </table></div></div>
+  <div class="card" style="margin-top:12px"><h2>アカウント全体</h2><p class="small">記事ごとの数字とは混ぜないでください。集計期間が違う行どうしは比べられません。</p>
+    <div class="tablewrap"><table><thead><tr><th>集計日時</th><th>期間</th><th class="num">PV</th><th class="num">スキ</th><th class="num">コメント</th><th class="num">投稿数</th></tr></thead>
+    <tbody>${acc.map((a) => `<tr><td>${esc(a.measured_at)}</td><td class="small">${esc(a.period_note || "")}</td><td class="num">${fmt(a.pv)}</td><td class="num">${fmt(a.likes)}</td><td class="num">${fmt(a.comments)}</td><td class="num">${fmt(a.posts)}</td></tr>`).join("")}</tbody></table></div>
+  </div>
+  ${rank ? `<div class="card" style="margin-top:12px"><h2>スキ数ランキング（${esc(rank.captured_at)}）</h2><p class="small">${esc(rank.period_note || "")}</p>
+    <div class="tablewrap"><table><thead><tr><th class="num">順位</th><th class="num">スキ</th><th>記事</th></tr></thead>
+    <tbody>${(rank.entries || []).map((e) => `<tr><td class="num">${e.position}</td><td class="num">${e.value}</td><td>${e.article_id ? esc(articleTitle(e.article_id)) : '<span class="missing">記事名未確認</span>'}</td></tr>`).join("")}</tbody></table></div></div>` : ""}`;
+}
+
+/* ---------------- シート（詳細・入力） ---------------- */
+function openSheet(title, body, onReady) {
+  const host = $("#sheetHost");
+  host.innerHTML = `<div class="sheet" role="dialog" aria-label="${esc(title)}">
+    <div class="bar"><div class="inner"><button type="button" data-close>← 戻る</button><strong style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</strong></div></div>
+    <div class="wrap">${body}</div></div>`;
+  document.body.style.overflow = "hidden";
+  host.querySelector("[data-close]").addEventListener("click", closeSheet);
+  if (onReady) onReady(host.querySelector(".sheet"));
+}
+function closeSheet() { $("#sheetHost").innerHTML = ""; document.body.style.overflow = ""; render(); }
+function sel(id, options, value, blank = true) { return `<select id="${id}">${blank ? '<option value="">（未設定）</option>' : ""}${options.map((o) => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${v === value ? "selected" : ""}>${esc(l)}</option>`; }).join("")}</select>`; }
+
+function openActor() {
+  openSheet("担当者名", `<div class="card"><p class="small">保存や承認をするとき、誰が操作したかとして記録します。この端末に覚えておきます。</p>
+    <label class="f">担当者名<input id="actorIn" value="${esc(actor())}" autocomplete="name"></label>
+    <button type="button" class="primary" id="actorSave">保存</button></div>`, (el) => {
+    el.querySelector("#actorSave").addEventListener("click", () => { const v = el.querySelector("#actorIn").value.trim(); if (!v) return toast("担当者名を入力してください"); storeSet("lumi.actor", v); toast("担当者名を保存しました"); closeSheet(); });
+  });
+}
+
+function openArticle(id) {
+  const isNew = !id; const a = isNew ? { id: "", title: "", title_status: "確認済み", url: "", url_status: "未確認", data_kind: "real" } : S.articles[id];
+  if (!a) return;
+  const ms = Object.values(S.metrics).filter((m) => m.article_id === id).sort((x, y) => x.measured_at.localeCompare(y.measured_at));
+  const tsel = splitTags(a.title_structure);
+  openSheet(isNew ? "記事を追加" : a.title, `
+  <div class="stack">
+    ${a.notes ? `<div class="note">${esc(a.notes)}</div>` : ""}
+    <div class="card">
+      ${isNew ? `<label class="f">記事ID（英数字。例：LS-A010）<input id="fId" autocapitalize="characters"></label>` : `<div class="small">${esc(a.id)}${a.data_kind === "sample" ? "（サンプル）" : ""}</div>`}
+      <label class="f">タイトル<textarea id="fTitle" rows="2">${esc(a.title)}</textarea></label>
+      <label class="f">タイトルの確認状態${sel("fTitleStatus", TITLE_STATUSES, a.title_status, false)}</label>
+      <label class="f">記事URL（noteの共有ボタンでコピーしたものをそのまま貼れます）<input id="fUrl" inputmode="url" value="${esc(a.url || "")}"></label>
+      <div class="small" id="urlMsg"></div>
+      <label class="f">URLの確認状態${sel("fUrlStatus", URL_STATUSES, a.url_status, false)}</label>
+      <label class="check"><input type="checkbox" id="fReviewed" ${a.content_reviewed ? "checked" : ""}>本文を読んで内容を確認した（関連性を判断する前提）</label>
+      <label class="f">公開日時（24時間・72時間の数字を記録するのに必要）<input type="datetime-local" id="fPub" value="${esc(toLocalInput(a.published_at))}"></label>
+    </div>
+    <div class="card"><h2>中身</h2>
+      <div class="grid2">
+        <label class="f">テーマ${sel("fTheme", Object.entries(THEMES).map(([k, v]) => [k, `${k} ${v}`]), a.theme)}</label>
+        <label class="f">主目的${sel("fPurpose", PURPOSES, a.primary_purpose)}</label>
+      </div>
+      <label class="f">想定読者<input id="fReader" value="${esc(a.target_reader || "")}"></label>
+      <label class="f">記事の中心主張<textarea id="fClaim">${esc(a.core_claim || "")}</textarea></label>
+      <label class="f">関連テーマタグ（カンマ区切り。推薦に使います）<input id="fTags" value="${esc(a.topic_tags || "")}"></label>
+      <label class="f">読者をつなぐ段階${sel("fStage", STAGES, a.funnel_stage)}</label>
+    </div>
+    <div class="card"><h2>構造コード（執筆基準Ver.6.1）</h2>
+      <div class="small">タイトル構造（複数選択可）</div>
+      <div class="seg" id="fTS">${Object.entries(TITLE_CODES).map(([k, v]) => `<button type="button" data-ts="${k}" aria-pressed="${tsel.includes(k)}">${k} ${v}</button>`).join("")}</div>
+      <div class="grid2">
+        <label class="f">Human（人間度）${sel("fH", H_CODES, a.human_code)}</label>
+        <label class="f">Perspective（視点変更）${sel("fV", V_CODES, a.perspective_code)}</label>
+        <label class="f">Specificity（具体性）${sel("fC", C_CODES, a.specificity_code)}</label>
+      </div>
+      <label class="f">公開前の仮説<input id="fHyp" value="${esc(a.pre_hypothesis || "")}"></label>
+    </div>
+    <button type="button" class="primary" id="fSave">保存</button>
+    ${isNew ? "" : `<div class="card"><div class="row spread"><h2>記録した数字</h2><button type="button" data-new-metric="${esc(a.id)}">＋ 記録</button></div>
+      ${ms.length ? `<div class="tablewrap"><table><thead><tr><th>区分</th><th>計測日時</th><th class="num">PV</th><th class="num">スキ</th><th class="num">コメント</th></tr></thead><tbody>
+      ${ms.map((m) => `<tr><td>${esc(WINDOWS[m.window] || m.window)}</td><td>${esc(m.measured_at)}</td><td class="num">${fmt(m.pv)}</td><td class="num">${fmt(m.likes)}</td><td class="num">${fmt(m.comments)}</td></tr>`).join("")}</tbody></table></div>` : '<p class="small">まだ記録がありません。</p>'}</div>`}
+  </div>`, (el) => {
+    const urlIn = el.querySelector("#fUrl"), msg = el.querySelector("#urlMsg");
+    const showUrl = () => { const r = validateUrl(urlIn.value); msg.textContent = r.kind === "empty" ? "" : r.msg; msg.style.color = r.kind === "invalid" ? "var(--bad)" : "var(--muted)"; };
+    urlIn.addEventListener("input", showUrl); showUrl();
+    el.querySelectorAll("[data-ts]").forEach((b) => b.addEventListener("click", () => b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true")));
+    const nm = el.querySelector("[data-new-metric]"); if (nm) nm.addEventListener("click", () => openMetric(nm.dataset.newMetric));
+    el.querySelector("#fSave").addEventListener("click", async (ev) => {
+      const btn = ev.currentTarget; btn.disabled = true;
+      try {
+        const who = needActor();
+        const newId = isNew ? el.querySelector("#fId").value.trim() : a.id;
+        if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/.test(newId)) throw new VErr("記事IDは英数字・ハイフンで入力してください");
+        if (isNew && S.articles[newId]) throw new VErr(`記事ID ${newId} は既にあります`);
+        const title = el.querySelector("#fTitle").value.trim(); if (!title) throw new VErr("タイトルを入力してください");
+        const u = validateUrl(urlIn.value); if (u.kind === "invalid") throw new VErr("URL：" + u.msg);
+        let us = el.querySelector("#fUrlStatus").value;
+        if (!u.url) us = "未確認"; else if (!isNew && u.url !== a.url && us === a.url_status && us !== "未確認") us = "未確認";
+        const data = {
+          id: newId, title, title_status: el.querySelector("#fTitleStatus").value, url: u.url, url_status: us,
+          content_reviewed: el.querySelector("#fReviewed").checked, published_at: normDT(el.querySelector("#fPub").value),
+          theme: el.querySelector("#fTheme").value || null, primary_purpose: el.querySelector("#fPurpose").value || null,
+          target_reader: el.querySelector("#fReader").value.trim() || null, core_claim: el.querySelector("#fClaim").value.trim() || null,
+          topic_tags: el.querySelector("#fTags").value.trim() || null, funnel_stage: el.querySelector("#fStage").value || null,
+          title_structure: [...el.querySelectorAll('[data-ts][aria-pressed="true"]')].map((b) => b.dataset.ts).join(",") || null,
+          human_code: el.querySelector("#fH").value || null, perspective_code: el.querySelector("#fV").value || null,
+          specificity_code: el.querySelector("#fC").value || null, pre_hypothesis: el.querySelector("#fHyp").value.trim() || null,
+          updated_at: now(),
+        };
+        if (isNew) {
+          Object.assign(data, { data_kind: "real", verification_status: "一部確認", source: `スマホ版で登録（${who}）`, notes: null, created_at: now() });
+          await write("articles/" + newId, data);
+          await audit("記事登録", "article", newId, null, data);
+        } else {
+          const diff = {}, before = {};
+          for (const [k, v] of Object.entries(data)) if (k !== "updated_at" && JSON.stringify(a[k] ?? null) !== JSON.stringify(v ?? null)) { diff[k] = v; before[k] = a[k] ?? null; }
+          if (!Object.keys(diff).length) { toast("変更はありません"); btn.disabled = false; return; }
+          diff.updated_at = data.updated_at;
+          await write("articles/" + a.id, diff, true);
+          await audit("記事更新", "article", a.id, before, diff);
+        }
+        toast(u.msg.includes("除去") ? "保存しました（URLの共有用部分を除去）" : "保存しました"); closeSheet();
+      } catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); btn.disabled = false; }
+    });
+  });
+}
+
+function openLink(id) {
+  const l = S.links[id]; if (!l) return;
+  const r = readiness(l);
+  const nexts = nextStatuses(l.status);
+  openSheet(`${l.id}`, `
+  <div class="stack">
+    <div class="card">
+      <div class="row"><span class="pill">${esc(l.status)}</span><span class="pill ${r.cls}">${esc(r.label)}</span><span class="pill">関連性：${esc(l.relevance_status || "未確認")}</span></div>
+      <div class="small">リンク元</div><div class="title-line">${esc(articleTitle(l.source))}</div>
+      <div class="small">リンク先</div><div class="title-line">${esc(articleTitle(l.target))}</div>
+      ${r.blockers.length ? `<div class="note warn">本番に反映できない理由<ul class="blockers">${r.blockers.map((b) => `<li>${esc(b)}</li>`).join("")}</ul></div>` : ""}
+    </div>
+    <div class="card"><h2>提案の内容</h2>
+      <label class="f">推薦理由<textarea id="lReason">${esc(l.reason || "")}</textarea></label>
+      <label class="f">読者が次に得られる価値<input id="lValue" value="${esc(l.reader_value || "")}"></label>
+      <label class="f">推奨リンク文<input id="lAnchor" value="${esc(l.anchor_text || "")}"></label>
+      <label class="f">推奨挿入場所${sel("lPos", POSITIONS, l.insert_position, false)}</label>
+      <div class="small">根拠：${esc(l.evidence || "")}</div>
+      <button type="button" id="lSave">内容を保存</button>
+    </div>
+    ${nexts.length ? `<div class="card"><h2>状態を進める</h2>
+      <label class="f">承認者（「承認」のときに必要）<input id="lApprover" value="${esc(actor())}"></label>
+      <label class="f">コメント（任意）<input id="lComment"></label>
+      ${nexts.includes("note反映") ? '<div class="note">noteの編集画面でご自身がリンクを貼ったあとに押してください。このページはnoteを操作しません。</div>' : ""}
+      <div class="row">${nexts.map((s) => `<button type="button" class="${s === REJECTED ? "danger" : "primary"}" data-to="${esc(s)}">${s === REJECTED ? "却下する" : `「${esc(s)}」にする`}</button>`).join("")}</div>
+    </div>` : ""}
+    <div class="card"><h2>この提案の履歴</h2>
+      ${(l.history || []).slice().reverse().map((h) => `<div class="hist">${esc(h.at)}　${esc(h.actor)}　${esc(h.from)}→${esc(h.to)}${h.approver ? `（承認者：${esc(h.approver)}）` : ""}${h.comment ? `<br>${esc(h.comment)}` : ""}</div>`).join("") || '<p class="small">まだ状態の変更はありません。</p>'}
+    </div>
+  </div>`, (el) => {
+    el.querySelector("#lSave").addEventListener("click", async () => {
+      try {
+        needActor();
+        const diff = { reason: el.querySelector("#lReason").value.trim(), reader_value: el.querySelector("#lValue").value.trim(), anchor_text: el.querySelector("#lAnchor").value.trim(), insert_position: el.querySelector("#lPos").value };
+        const before = Object.fromEntries(Object.keys(diff).map((k) => [k, l[k] ?? null]));
+        await write("links/" + l.id, { ...diff, updated_at: now() }, true);
+        await audit("リンク提案の修正", "link", l.id, before, diff);
+        toast("保存しました");
+      } catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); }
+    });
+    el.querySelectorAll("[data-to]").forEach((b) => b.addEventListener("click", async () => {
+      b.disabled = true;
+      try {
+        const who = needActor(); const to = b.dataset.to;
+        const approver = el.querySelector("#lApprover")?.value.trim(); const comment = el.querySelector("#lComment")?.value.trim();
+        const blockers = linkBlockers(l);
+        const upd = { status: to, updated_at: now() };
+        if (to === "確認") { const s = S.articles[l.source], t = S.articles[l.target]; upd.relevance_status = s?.content_reviewed && t?.content_reviewed ? "確認済み" : "未確認（本文未確認の記事を含む）"; }
+        if (to === "承認") { if (!approver) throw new VErr("承認者名を入力してください"); if (blockers.length) throw new VErr("仮案のため承認できません：" + blockers.join("、")); }
+        if ((to === "note反映" || to === "表示確認") && blockers.length) throw new VErr("本番反映の記録はできません：" + blockers.join("、"));
+        if (to === "提案") upd.relevance_status = "未確認";
+        upd.history = [...(l.history || []), { at: now(), actor: who, from: l.status, to, approver: to === "承認" ? approver : null, comment: comment || null }];
+        await write("links/" + l.id, upd, true);
+        await audit(`リンク状態変更：${l.status}→${to}`, "link", l.id, { status: l.status }, { status: to }, to === "承認" ? approver : null, comment);
+        toast(`「${to}」にしました`); closeSheet();
+      } catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); b.disabled = false; }
+    }));
+  });
+}
+
+function openMetric(articleId) {
+  const opts = Object.values(S.articles).sort((a, b) => a.id.localeCompare(b.id)).map((a) => [a.id, a.title]);
+  openSheet("数字を記録", `
+  <div class="stack"><div class="card">
+    <label class="f">記事${sel("mArt", opts, articleId || "", false)}</label>
+    <label class="f">区分${sel("mWin", Object.entries(WINDOWS), "24h", false)}</label>
+    <div class="note">24時間値は公開から18〜30時間、72時間値は60〜84時間のあいだに見た数字だけ登録できます。後日見た数字は「累積値」にしてください。</div>
+    <label class="f">数字を見た日時<input type="datetime-local" id="mAt"></label>
+    <label class="f">どこで見たか（出典）<input id="mSrc" placeholder="例：note管理画面の記事別アクセス"></label>
+    <div class="small">分からない項目は空欄のまま。0と入力すると「計測して0」になります。</div>
+    <div class="grid4">${METRIC_FIELDS.map(([k, l]) => `<label class="f">${l}<input id="m_${k}" inputmode="numeric"></label>`).join("")}</div>
+    <label class="f">計測条件のメモ（任意）<input id="mNote"></label>
+    <button type="button" class="primary" id="mSave">記録する</button>
+  </div></div>`, (el) => {
+    const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); el.querySelector("#mAt").value = d.toISOString().slice(0, 16);
+    el.querySelector("#mSave").addEventListener("click", async (ev) => {
+      const btn = ev.currentTarget; btn.disabled = true;
+      try {
+        const who = needActor();
+        const art = S.articles[el.querySelector("#mArt").value]; if (!art) throw new VErr("記事を選んでください");
+        const win = el.querySelector("#mWin").value; const at = normDT(el.querySelector("#mAt").value); if (!at) throw new VErr("数字を見た日時を入力してください");
+        const src = el.querySelector("#mSrc").value.trim(); if (!src) throw new VErr("どこで見たか（出典）を入力してください");
+        const vals = {}; for (const [k, l] of METRIC_FIELDS) vals[k] = parseCount(el.querySelector("#m_" + k).value, l);
+        if (Object.values(vals).every((v) => v === null)) throw new VErr("少なくとも1つの数字を入力してください");
+        let hours = null;
+        if (art.published_at && hasTime(art.published_at)) { hours = Math.round((toDate(at) - toDate(art.published_at)) / 36e3) / 100; if (hours < 0) throw new VErr("計測日時が公開日時より前です"); }
+        if (TOLERANCE[win]) {
+          if (hours === null) throw new VErr("記事の公開日時（時刻まで）が未登録のため、24h・72h値として登録できません。記事の画面で公開日時を入れるか、累積値として記録してください");
+          const [lo, hi] = TOLERANCE[win];
+          if (hours < lo || hours > hi) throw new VErr(`公開から${hours}時間後の数字は${WINDOWS[win]}にできません（${lo}〜${hi}時間）。累積値として記録してください`);
+        }
+        const doc = { article_id: art.id, window: win, measured_at: at, hours_since_publish: hours, ...vals, source: src, condition_note: el.querySelector("#mNote").value.trim() || null, data_kind: art.data_kind || "real", created_at: now(), created_by: who };
+        const ref = S.db.collection("metrics").doc();
+        await write("metrics/" + ref.id, doc);
+        await audit("数字を記録", "metric", ref.id, null, doc);
+        toast("記録しました"); S.metricWindow = win; closeSheet();
+      } catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); btn.disabled = false; }
+    });
+  });
+}
+
+async function saveRecommendation(srcId, rec) {
+  const who = needActor();
+  const issues = linkIssues(srcId, rec.target); if (issues.length) throw new VErr(issues.join("、"));
+  const max = Object.keys(S.links).filter((k) => /^LNK-\d+$/.test(k)).map((k) => Number(k.slice(4))).reduce((a, b) => Math.max(a, b), 0);
+  const id = "LNK-" + String(max + 1).padStart(4, "0");
+  const doc = { id, source: srcId, target: rec.target, hub_id: rec.hub_id, reason: rec.reason, reader_value: rec.reader_value, anchor_text: rec.anchor_text, insert_position: rec.insert_position, evidence: `rule-engine v1（スマホ版）: score=${rec.score}（${rec.basis}）`, score: rec.score, proposed_by: "rule-engine v1", status: "提案", relevance_status: "未確認", history: [], created_at: now(), updated_at: now(), created_by: who };
+  await write("links/" + id, doc);
+  await audit("リンク提案登録", "link", id, null, doc);
+  return id;
+}
+
+/* ---------------- イベント ---------------- */
+document.addEventListener("click", async (ev) => {
+  const t = ev.target.closest("button, .card.tap"); if (!t) return;
+  if (t.dataset.tab) { S.tab = t.dataset.tab; storeSet("lumi.tab", S.tab); window.scrollTo(0, 0); render(); return; }
+  if (t.dataset.go) { S.tab = t.dataset.go; if (t.dataset.go === "articles") S.filter = "todo"; render(); return; }
+  if (t.id === "actorBtn") return openActor();
+  if (t.dataset.filter) { S.filter = t.dataset.filter; render(); return; }
+  if (t.dataset.window) { S.metricWindow = t.dataset.window; render(); return; }
+  if (t.hasAttribute("data-new-article")) return openArticle(null);
+  if (t.hasAttribute("data-new-metric") && !t.closest(".sheet")) return openMetric(null);
+  if (t.dataset.openArticle) return openArticle(t.dataset.openArticle);
+  if (t.dataset.openLink) return openLink(t.dataset.openLink);
+  if (t.hasAttribute("data-copy")) {
+    const text = $("#pasteText")?.textContent || "";
+    try { await navigator.clipboard.writeText(text); toast("コピーしました"); }
+    catch { const r = document.createRange(); r.selectNodeContents($("#pasteText")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("文章を選択しました。長押しでコピーしてください"); }
+    return;
+  }
+  if (t.dataset.addRec) {
+    t.disabled = true;
+    try { const src = $("#recSource").value; const rec = recommend(src, 3).find((r) => r.target === t.dataset.addRec); if (!rec) throw new VErr("候補が見つかりません"); const id = await saveRecommendation(src, rec); toast(`${id} を「提案」として登録しました`); }
+    catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); t.disabled = false; }
+  }
+});
+document.addEventListener("change", (ev) => {
+  if (ev.target.id === "pasteSource") { S.pasteSource = ev.target.value; render(); }
+  if (ev.target.id === "recSource") {
+    const src = ev.target.value; const out = $("#recOut"); if (!src) { out.innerHTML = ""; return; }
+    const recs = recommend(src, 3);
+    out.innerHTML = recs.length ? `<div class="stack">${recs.map((r) => `
+      <div class="card" style="background:var(--bg)">
+        <div class="title-line">${esc(articleTitle(r.target))}</div>
+        <div class="small">推薦理由：${esc(r.reason)}</div>
+        <div class="small">読者が得る価値：${esc(r.reader_value)}</div>
+        <div class="small">リンク文：${esc(r.anchor_text)}／挿入場所：${esc(r.insert_position)}</div>
+        <div class="row"><span class="pill ${URL_USABLE.has(S.articles[r.target]?.url_status) ? "ok" : "warn"}">URL ${esc(S.articles[r.target]?.url_status)}</span><span class="pill">${esc(r.basis)}</span></div>
+        <button type="button" data-add-rec="${esc(r.target)}">「提案」として登録</button>
+      </div>`).join("")}</div>` : '<p class="small">新しい候補はありません（既に提案済みか、共通するテーマ・タグがありません）。</p>';
+  }
+});
+
+/* ---------------- 起動 ---------------- */
+function subscribe(name, key, mapFn) {
+  S.db.collection(name).onSnapshot((snap) => {
+    const m = {}; snap.docs.forEach((d) => { m[d.id] = { id: d.id, ...d.data() }; });
+    S[key] = mapFn ? mapFn(m) : m; S.loaded.add(name);
+    if (S.loaded.size >= 4) S.ready = true;
+    if (!$("#sheetHost").innerHTML) render();
+  }, (e) => { console.warn(name, e); });
+}
+async function start() {
+  const saved = storeGet("lumi.tab"); if (TABS.includes(saved)) S.tab = saved;
+  if (location.hash && TABS.includes(location.hash.slice(1))) S.tab = location.hash.slice(1);
+  render();
+  const db = window.claude && window.claude.use ? await window.claude.use("db") : null;
+  if (!db) { $("#main").innerHTML = `<div class="card"><h2>データを読み込めません</h2><p class="small">このページはclaude.aiにログインした状態で開くと、記事やリンク提案を表示・保存できます。</p></div>`; return; }
+  S.db = db;
+  subscribe("articles", "articles"); subscribe("hubs", "hubs"); subscribe("links", "links"); subscribe("metrics", "metrics");
+  subscribe("account", "account"); subscribe("rankings", "rankings");
+  db.collection("audit").orderBy("at", "desc").limit(30).onSnapshot((snap) => { S.audit = snap.docs.map((d) => d.data()); if (S.ready && !$("#sheetHost").innerHTML) render(); }, () => {});
+  setTimeout(() => { if (!S.ready) { S.ready = true; render(); } }, 6000);
+}
+start();
+})();
+</script>
