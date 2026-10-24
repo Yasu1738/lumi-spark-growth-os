@@ -32,14 +32,15 @@ REAL_ARTICLES = [
     },
     {
         "article_id": "LS-A002",
-        "title": "事業承継は、親子関…（以降未確認）",
-        "title_status": "一部のみ", "url": "https://note.com/lumispark/n/n2277389a2429",
+        "title": "事業承継は、親子関係が壊れたら終わりなのか",
+        "title_status": "確認済み", "url": "https://note.com/lumispark/n/n2277389a2429",
         "url_status": "オーナー提示", "theme": "ORG",
         "funnel_stage": "認知",
         "topic_tags": "事業承継,継承,リーダーシップ,組織づくり,権限と責任,人材育成,中小企業経営",
-        "verification_status": "仮登録", "source": SRC_RANKING + "／URL: オーナー提示（2026-10-24 チャット）",
-        "notes": "HUB-ORGの仮登録。URLはオーナーが2026-10-24に提示（共有用パラメータ ?sub_rt=share_b を除去）。"
-                 "ランキング画像の記事と同一である前提で登録しているが、正式タイトルは未確認。",
+        "verification_status": "一部確認",
+        "source": SRC_RANKING + "／タイトル・URL: オーナー提示（2026-10-24 チャット）",
+        "notes": "HUB-ORGのハブ記事。タイトル・URLはオーナーが2026-10-24に提示"
+                 "（URLの共有用パラメータ ?sub_rt=share_b は除去）。本文は未確認。",
     },
     {
         "article_id": "LS-A003",
@@ -107,7 +108,7 @@ HUBS = [
     },
     {
         "hub_id": "HUB-ORG", "name": "経営・組織・事業承継", "hub_article_id": "LS-A002", "sort_order": 2,
-        "status": "仮登録（URLはオーナー提示・正式タイトル未確認）",
+        "status": "候補（オーナー指定）",
         "related_topics": "リーダーシップ,組織づくり,権限と責任,事業承継,人材育成,中小企業経営",
         "description": "事業承継を入口に、権限と責任・人材育成・中小企業経営へつなぐ。",
         "steps": [("リーダーシップ", "信頼"), ("権限と責任", "信頼"), ("事業承継", "信頼"),
@@ -191,11 +192,11 @@ def seed_real(conn):
         " VALUES (?,?,?,?,?,?,?)",
         ("RANK-20261024-1151", "2026-10-24 11:51", "スキ（累積）",
          "累積値。各記事の公開後経過期間は異なり、同条件の比較ではない", SRC_RANKING,
-         "上位10記事。記事名・URLの照合は3件のみ（うち1件は部分一致）", ts),
+         "上位10記事。記事名・URLの照合は3件のみ", ts),
     )
     matches = {
         1: ("LS-A001", "照合済み（タイトル一致・オーナー提示）", None),
-        2: ("LS-A002", "部分一致（タイトル途中まで）", "事業承継は、親子関…"),
+        2: ("LS-A002", "照合済み（画像の「事業承継は、親子関…」とオーナー提示タイトルが一致）", "事業承継は、親子関…"),
         4: ("LS-A003", "照合済み（同数46スキ3件のうち1件。同数内の順位は未確認）", None),
     }
     for position, value in enumerate(RANKING_VALUES, start=1):

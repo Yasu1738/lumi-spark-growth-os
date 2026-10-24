@@ -33,7 +33,7 @@ def test_ac01_seed_has_more_than_ten_articles(seeded):
 def test_ac02_three_hubs_display_and_edit(seeded):
     hubs = repository.list_hubs(seeded)
     assert [h["hub_id"] for h in hubs] == ["HUB-AI", "HUB-ORG", "HUB-REG"]
-    assert repository.get_hub(seeded, "HUB-ORG")["status"].startswith("仮登録")
+    assert repository.get_hub(seeded, "HUB-ORG")["status"] == "候補（オーナー指定）"
     repository.update_hub(seeded, "HUB-REG", {"name": "地域産業の未来（改）", "related_topics": "町工場"}, ACTOR)
     assert repository.get_hub(seeded, "HUB-REG")["name"] == "地域産業の未来（改）"
     steps = repository.replace_path_steps(seeded, "HUB-AI", [
@@ -232,13 +232,15 @@ def test_ac07_unverified_urls(seeded):
 
 
 def test_ac07_owner_url_alone_does_not_make_link_production_ready(seeded):
-    """HUB-ORGはURLがオーナー提示済みでも、タイトル・本文が未確認なので仮案のまま。"""
+    """HUB-ORGはタイトル・URLがオーナー提示済みでも、本文が未確認なので仮案のまま。"""
     hub_org = repository.get_article(seeded, "LS-A002")
     assert hub_org["url"] == "https://note.com/lumispark/n/n2277389a2429"
-    assert hub_org["url_status"] == "オーナー提示" and hub_org["title_status"] == "一部のみ"
+    assert hub_org["title"] == "事業承継は、親子関係が壊れたら終わりなのか"
+    assert hub_org["url_status"] == "オーナー提示" and hub_org["title_status"] == "確認済み"
     for link in repository.list_links(seeded, source_id="LS-A002"):
         blockers = repository.link_readiness(seeded, link)["blockers"]
-        assert "リンク元のタイトルが未照合（一部のみ）" in blockers
+        assert "リンク元の本文内容が未確認" in blockers
+        assert not any(b.startswith("リンク元のタイトル") for b in blockers)
         assert not any(b.startswith("リンク元のURL") for b in blockers)
 
 
