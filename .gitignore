@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+# 運用中のDB・バックアップ・書き出しはリポジトリに含めない（個人の運用データのため）
+data/*.db
+data/*.db-journal
+backups/
+exports/
+tests/.acceptance.xml

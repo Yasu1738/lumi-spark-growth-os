@@ -1,0 +1,3 @@
+source_article_id,target_article_id,reason,reader_value,anchor_text,insert_position,evidence
+SMP-101,SMP-102,共通タグ「業務設計」,現場の具体例で考え直せる,「業務設計」を、もう一歩考えたい方へ,本文末の関連記事ブロック,サンプルCSV（手動作成）
+SMP-101,SMP-101,自己リンクの検出例,,,,検出テスト用（取込時にスキップされる）

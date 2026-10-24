@@ -1,0 +1,3 @@
+article_id,title,title_status,url,theme,primary_purpose,funnel_stage,title_structure,human_code,perspective_code,specificity_code,topic_tags,published_at,data_kind,source,notes
+SMP-101,【サンプル】AIに任せた仕事の「例外」は誰が持つのか,確認済み,,AI,経営・組織,信頼,"T01,T05",H3,V3,C2,"判断と権限,AIエージェント",2026-10-15 07:00,sample,サンプルCSV,取込手順の練習用（実績ではない）
+SMP-102,【サンプル】町工場の見積が遅い本当の理由,確認済み,,REG,専門・実務,信頼,T10,H2,V2,C3,"町工場,業務設計",2026-10-17 07:00,sample,サンプルCSV,取込手順の練習用（実績ではない）

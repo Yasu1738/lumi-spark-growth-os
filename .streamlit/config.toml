@@ -1,0 +1,10 @@
+# 外部通信を発生させないための設定（利用統計の送信を無効化し、ローカルのみで待ち受ける）
+[browser]
+gatherUsageStats = false
+
+[server]
+address = "localhost"
+headless = true
+
+[client]
+toolbarMode = "minimal"
