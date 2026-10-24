@@ -286,7 +286,6 @@ function linkBlockers(l) {
     if (!a) { out.push(`${role}の記事が見つかりません`); continue; }
     if (a.data_kind === "sample") out.push(`${role}がサンプル記事`);
     if (!a.url || !URL_USABLE.has(a.url_status)) out.push(`${role}のURLが未確認`);
-    if (!a.content_reviewed) out.push(`${role}の本文内容が未確認`);
     if (a.title_status !== "確認済み") out.push(`${role}のタイトルが未照合`);
   }
   return out;
@@ -298,17 +297,16 @@ function readiness(l) {
   if (l.status === REJECTED) { label = "却下"; cls = ""; }
   else if (b.length) { label = "仮案（本番反映不可）"; cls = "warn"; }
   else if (!approved) { label = "承認待ち"; cls = "accent"; }
-  else if (l.status === "承認") { label = "承認済み・note反映待ち"; cls = "ok"; }
-  else { label = l.status + "済み"; cls = "ok"; }
+  else if (l.status === "承認") { label = "承認済み・noteに貼る待ち"; cls = "ok"; }
+  else { label = "完了"; cls = "ok"; }
   return { label, cls, blockers: b, ready: approved && !b.length };
 }
+// オーナー了承（2026-10-24）：「確認」と「承認」、「note反映」と「表示確認」をそれぞれ1回の操作にまとめる
 function nextStatuses(s) {
   if (s === REJECTED) return ["提案"];
-  const i = LINK_FLOW.indexOf(s);
-  if (i < 0) return [];
-  const n = LINK_FLOW.slice(i + 1, i + 2);
-  if (s !== "表示確認") n.push(REJECTED);
-  return n;
+  if (s === "提案" || s === "確認") return ["承認", REJECTED];
+  if (s === "承認") return ["note反映", REJECTED];
+  return [];
 }
 function linkIssues(src, tgt) {
   const out = [];
@@ -350,14 +348,15 @@ function recommend(srcId, limit = 3) {
       reader_value: READER_VALUE[c.primary_purpose] || "関連する論点を別の角度から深められる",
       anchor_text: shared.length ? `「${shared[0]}」を、もう一歩考えたい方へ` : (ANCHOR_BY_THEME[c.theme] || "あわせて読みたい記事"),
       insert_position: pos, hub_id: srcHubs[0]?.id || null,
-      basis: src.content_reviewed && c.content_reviewed ? "本文確認済みの記事情報" : "タイトル・タグからのルール推定（本文未確認）",
+      basis: "タイトル・タグからのルール推定（承認時に筆者が確認）",
     });
   }
   return res.sort((a, b) => b.score - a.score || a.target.localeCompare(b.target)).slice(0, limit);
 }
-function guidance(srcId) {
+function guidance(srcId, onlyApproved) {
   const src = S.articles[srcId];
-  const links = Object.values(S.links).filter((l) => l.source === srcId && l.status !== REJECTED).sort((a, b) => a.id.localeCompare(b.id));
+  const links = Object.values(S.links).filter((l) => l.source === srcId && l.status !== REJECTED
+    && (!onlyApproved || ["承認", "note反映", "表示確認"].includes(l.status))).sort((a, b) => a.id.localeCompare(b.id));
   if (!src || !links.length) return { text: "", warnings: ["この記事にはリンク提案がありません"], ready: false };
   const srcTags = new Set(splitTags(src.topic_tags));
   const focuses = []; const blocks = []; const warnings = []; let allReady = true;
@@ -398,20 +397,19 @@ function render() {
 function articleTitle(id) { return S.articles[id]?.title || id; }
 function statusPill(a) {
   const u = URL_USABLE.has(a.url_status) ? `<span class="pill ok">URL ${esc(a.url_status)}</span>` : `<span class="pill warn">URL ${esc(a.url_status)}</span>`;
-  const b = a.content_reviewed ? '<span class="pill ok">本文確認済み</span>' : '<span class="pill">本文未確認</span>';
+  const b = "";
   const t = a.title_status === "確認済み" ? "" : `<span class="pill warn">タイトル${esc(a.title_status)}</span>`;
   const k = a.data_kind === "sample" ? '<span class="pill bad">サンプル</span>' : "";
   return u + b + t + k;
 }
 
-const STATUS_LABEL = { "提案": "提案（まだ見ていない）", "確認": "確認済み・承認待ち", "承認": "承認済み・noteにまだ貼っていない", "note反映": "noteに貼った・表示の確認待ち", "表示確認": "完了", "却下": "見送り" };
+const STATUS_LABEL = { "提案": "承認待ち", "確認": "承認待ち", "承認": "承認済み・noteに貼る待ち", "note反映": "完了（noteに貼った）", "表示確認": "完了", "却下": "見送り" };
 const byId = (a, b) => a.id.localeCompare(b.id);
 function linkFixes(l) {
   const out = [];
   for (const [role, id] of [["リンク元", l.source], ["リンク先", l.target]]) {
     const a = S.articles[id]; if (!a) continue;
     if (!a.url || !URL_USABLE.has(a.url_status)) out.push({ text: `「${a.title.slice(0, 22)}」のURLを入れる`, id });
-    if (!a.content_reviewed) out.push({ text: `「${a.title.slice(0, 22)}」の本文確認にチェック`, id });
     if (a.title_status !== "確認済み") out.push({ text: `「${a.title.slice(0, 22)}」の正式タイトルを入れる`, id });
   }
   return out;
@@ -422,54 +420,66 @@ function step(n, title, doneText, isDone, body) {
     ${isDone ? `<p class="small">${doneText}</p>` : body}
   </div>`;
 }
+function dueMeasurements() {
+  // 公開日時から、いま24時間値・72時間値を記録できる記事と、次に記録できる時刻を求める
+  const nowD = new Date(); const out = { now: [], soon: [] };
+  for (const a of Object.values(S.articles)) {
+    if (a.data_kind === "sample" || !a.published_at || !hasTime(a.published_at)) continue;
+    const h = (nowD - toDate(a.published_at)) / 36e5;
+    const ms = Object.values(S.metrics).filter((m) => m.article_id === a.id);
+    for (const w of ["24h", "72h"]) {
+      if (ms.some((m) => m.window === w)) continue;
+      const [lo, hi] = TOLERANCE[w];
+      if (h >= lo && h <= hi) out.now.push({ a, w, h });
+      else if (h < lo && lo - h <= 24) out.soon.push({ a, w, at: new Date(toDate(a.published_at).getTime() + lo * 36e5) });
+    }
+  }
+  return out;
+}
+function fmtTime(d) { return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
 function viewHome() {
-  const real = Object.values(S.articles).filter((a) => a.data_kind !== "sample").sort(byId);
-  const info = Object.values(S.links).filter((l) => l.status !== REJECTED).sort(byId).map((l) => ({ l, r: readiness(l) }));
+  const info = Object.values(S.links).filter((l) => l.status !== REJECTED).map((l) => ({ l, r: readiness(l) }));
   const who = actor();
-  const unreviewed = real.filter((a) => !a.content_reviewed);
-  const noUrl = real.filter((a) => !a.url || !URL_USABLE.has(a.url_status));
-  const approvable = info.filter((x) => !x.r.blockers.length && (x.l.status === "提案" || x.l.status === "確認"));
-  const almost = info.filter((x) => x.r.blockers.length && (x.l.status === "提案" || x.l.status === "確認"))
-    .sort((a, b) => linkFixes(a.l).length - linkFixes(b.l).length).slice(0, 3);
+  const approvable = info.filter((x) => !x.r.blockers.length && (x.l.status === "提案" || x.l.status === "確認"))
+    .sort((a, b) => (b.l.score || 0) - (a.l.score || 0) || a.l.id.localeCompare(b.l.id));
+  const blocked = info.filter((x) => x.r.blockers.length && (x.l.status === "提案" || x.l.status === "確認"));
+  const needUrl = [...new Set(blocked.flatMap((x) => [x.l.source, x.l.target]).filter((id) => { const a = S.articles[id]; return a && (!a.url || !URL_USABLE.has(a.url_status) || a.title_status !== "確認済み"); }))];
   const toPaste = info.filter((x) => x.l.status === "承認");
-  const toCheck = info.filter((x) => x.l.status === "note反映");
-  const finished = info.filter((x) => x.l.status === "表示確認").length;
+  const pasteSources = [...new Set(toPaste.map((x) => x.l.source))];
+  const done = info.filter((x) => x.l.status === "note反映" || x.l.status === "表示確認").length;
+  const due = dueMeasurements();
   const hubs = Object.values(S.hubs).sort((x, y) => (x.sort_order || 0) - (y.sort_order || 0));
-  const pair = (l) => `<div class="small">${esc(articleTitle(l.source).slice(0, 24))} →</div><div class="title-line">${esc(articleTitle(l.target))}</div>`;
+  const pair = (l) => `<div class="small">${esc(articleTitle(l.source).slice(0, 26))} →</div><div class="title-line">${esc(articleTitle(l.target))}</div>`;
+  const showAll = S.showAllApprove; const list = showAll ? approvable : approvable.slice(0, 5);
   return `
   <h1>やること</h1>
-  <p class="lead">上から順に進めてください。ボタンを押すと、その場で保存されます。</p>
+  <p class="lead">新しい記事は毎朝自動で取り込まれ、関連記事の候補も自動で作られます。下のボタンを押すだけで進みます。</p>
+  ${!who ? `<div class="card" style="margin-bottom:12px"><h2>はじめに名前を入れてください</h2><p class="small">誰が承認したかの記録に使います（1回だけ）。</p><button type="button" class="primary" id="actorBtn2">名前を入れる</button></div>` : ""}
   <div class="stack">
-  ${step(1, "名前を入れる", `担当者：${esc(who)}（右上で変更できます）`, !!who,
-    `<p class="small">誰が操作したかの記録に使います。</p><button type="button" class="primary" id="actorBtn2">名前を入れる</button>`)}
+  ${step(1, `関連記事を承認する${approvable.length ? `（${approvable.length}件）` : ""}`, "承認を待つリンクはありません。", !approvable.length && !needUrl.length,
+    `${approvable.length ? `<p class="small">つなぐ意味があれば「承認」、合わなければ「見送り」。おすすめ順に並んでいます。</p>
+      <ul class="plain">${list.map(({ l }) => `<li class="qcol">${pair(l)}<div class="small">${esc(l.reason || "")}</div>
+        <div class="row"><button type="button" class="spark" data-quick="${esc(l.id)}" data-to="承認">承認</button>
+        <button type="button" class="danger" data-quick="${esc(l.id)}" data-to="却下">見送り</button></div></li>`).join("")}</ul>
+      ${approvable.length > 5 ? `<button type="button" class="ghost" data-toggle-all>${showAll ? "おすすめ5件だけ表示" : `残り${approvable.length - 5}件も表示`}</button>` : ""}` : ""}
+    ${needUrl.length ? `<details style="margin-top:6px"><summary class="small">URLが分からず承認できない記事（${needUrl.length}件）</summary>
+      <p class="small">RSSに載らない古い記事です。noteの共有ボタンでURLをコピーして貼ると承認できるようになります。</p>
+      <ul class="plain">${needUrl.map((id) => { const a = S.articles[id]; return `<li class="qcol"><span class="qtitle">${esc(a.title)}</span>
+        ${a.title_status !== "確認済み" ? `<button type="button" class="ghost small-btn" data-open-article="${esc(a.id)}">タイトルが途中までです。正式タイトルを入れる →</button>` : ""}
+        ${!a.url || !URL_USABLE.has(a.url_status) ? `<div class="row nowrap"><input id="u-${esc(a.id)}" inputmode="url" placeholder="https://note.com/lumispark/n/..."><button type="button" class="primary" data-saveurl="${esc(a.id)}">保存</button></div>` : ""}</li>`; }).join("")}</ul></details>` : ""}`)}
 
-  ${step(2, "記事の中身を確認済みにする", "すべての記事を確認済みにしました。", !unreviewed.length,
-    `<p class="small">ご自身が書いた記事で、内容を覚えていれば「確認した」を押すだけです。関連記事としてつないでよいかを判断する前提になります。</p>
-    <ul class="plain">${unreviewed.map((a) => `<li class="qrow"><span class="qtitle">${esc(a.title)}</span><button type="button" data-review="${esc(a.id)}">確認した</button></li>`).join("")}</ul>`)}
+  ${step(2, "noteに貼る", done ? `${done}本のリンクを貼りました。` : "貼る待ちのリンクはありません。", !pasteSources.length,
+    `<p class="small">記事ごとに案内文をまとめてあります。「コピー」→ noteでその記事の末尾に貼る →「貼った」。</p>
+    <ul class="plain">${pasteSources.map((src) => { const g = guidance(src, true); const ids = toPaste.filter((x) => x.l.source === src).map((x) => x.l.id); return `<li class="qcol">
+      <div class="small">貼る先の記事</div><div class="title-line">${esc(articleTitle(src))}</div>
+      ${S.articles[src]?.url ? `<a class="small" href="${esc(S.articles[src].url)}" target="_blank" rel="noopener">noteでこの記事を開く ↗</a>` : ""}
+      <pre class="paste" id="p-${esc(src)}">${esc(g.text)}</pre>
+      <div class="row"><button type="button" data-copy-src="${esc(src)}">コピー</button><button type="button" class="primary" data-pasted="${esc(ids.join(","))}">貼った</button></div></li>`; }).join("")}</ul>`)}
 
-  ${step(3, "記事のURLを入れる", "すべての記事にURLが入りました。", !noUrl.length,
-    `<div class="note">いちばん楽な方法：タイトルとURLが入った文章をまとめて貼ると、自動で読み取ります。<br><button type="button" class="spark" data-bulk style="margin-top:8px">まとめて貼り付け</button></div>
-    <p class="small">1本ずつ入れる場合は、noteで記事を開き、共有ボタン →「リンクをコピー」。下の欄に貼って「保存」を押します。</p>
-    <ul class="plain">${noUrl.map((a) => `<li class="qcol"><span class="qtitle">${esc(a.title)}</span>
-      ${a.title_status !== "確認済み" ? `<button type="button" class="ghost small-btn" data-open-article="${esc(a.id)}">タイトルが途中までです。正式タイトルを入れる →</button>` : ""}
-      <div class="row nowrap"><input id="u-${esc(a.id)}" inputmode="url" placeholder="https://note.com/lumispark/n/..." value="${esc(a.url || "")}"><button type="button" class="primary" data-saveurl="${esc(a.id)}">保存</button></div></li>`).join("")}</ul>`)}
-
-  ${step(4, "関連記事のリンクを承認する", "承認を待つリンクはありません。", !approvable.length && !almost.length,
-    `${approvable.length ? `<p class="small">2つの記事をつなぐ意味があれば「確認」→「承認」と押します。合わなければ「見送り」。</p>
-      <ul class="plain">${approvable.map(({ l }) => `<li class="qcol">${pair(l)}<div class="small">${esc(l.reason || "")}</div>
-        <div class="row">${l.status === "提案" ? `<button type="button" class="primary" data-quick="${esc(l.id)}" data-to="確認">つなぐ意味がある（確認）</button>` : `<button type="button" class="spark" data-quick="${esc(l.id)}" data-to="承認">承認する</button>`}
-        <button type="button" class="danger" data-quick="${esc(l.id)}" data-to="却下">見送り</button></div></li>`).join("")}</ul>`
-      : `<p class="small">今すぐ承認できるリンクはありません。下の項目を埋めると承認できるようになります。</p>`}
-    ${almost.length ? `<div class="small" style="margin-top:6px">あと少しで承認できるリンク</div>
-      <ul class="plain">${almost.map(({ l }) => `<li class="qcol">${pair(l)}<div class="row">${linkFixes(l).slice(0, 3).map((f) => `<button type="button" class="ghost small-btn" data-open-article="${esc(f.id)}">${esc(f.text)} →</button>`).join("")}</div></li>`).join("")}</ul>` : ""}`)}
-
-  ${step(5, "noteに貼る", "noteに貼る待ちのリンクはありません。", !toPaste.length,
-    `<p class="small">「貼り付け文を開く」でコピーし、noteの記事の末尾に貼ります。貼ったら「noteに貼った」を押します。</p>
-    <ul class="plain">${toPaste.map(({ l }) => `<li class="qcol">${pair(l)}<div class="row"><button type="button" data-paste-src="${esc(l.source)}">貼り付け文を開く</button><button type="button" class="primary" data-quick="${esc(l.id)}" data-to="note反映">noteに貼った</button></div></li>`).join("")}</ul>`)}
-
-  ${step(6, "noteで表示を確かめる", finished ? `${finished}本のリンクが完了しています。` : "確かめ待ちのリンクはありません。", !toCheck.length,
-    `<p class="small">公開中の記事を開き、リンクをタップして関連記事が開けば「開けた」を押します。</p>
-    <ul class="plain">${toCheck.map(({ l }) => `<li class="qcol">${pair(l)}<button type="button" class="primary" data-quick="${esc(l.id)}" data-to="表示確認">開けた</button></li>`).join("")}</ul>`)}
+  ${step(3, "数字を記録する", due.soon.length ? `次の記録：${due.soon.slice(0, 2).map((x) => `「${esc(x.a.title.slice(0, 14))}…」の${x.w === "24h" ? "24時間" : "72時間"}値は ${fmtTime(x.at)} から`).join("／")}` : "いま記録が必要な記事はありません。", !due.now.length,
+    `<p class="small">noteの管理画面（アクセス状況）で期間を「全期間」にしてスクショし、送るだけで数字を読み取ります。</p>
+    <ul class="plain">${due.now.map(({ a, w, h }) => `<li class="qrow"><span class="qtitle">${esc(a.title)}<br><span class="small">公開から${Math.round(h)}時間・${w === "24h" ? "24時間値" : "72時間値"}を記録できます</span></span></li>`).join("")}</ul>
+    <button type="button" class="spark" data-shot>スクショから記録</button>`)}
   </div>
 
   <details class="card" style="margin-top:14px"><summary>3つのハブ</summary>
@@ -486,7 +496,7 @@ function viewHome() {
 function viewArticles() {
   const list = Object.values(S.articles).sort((a, b) => a.id.localeCompare(b.id));
   const f = S.filter;
-  const shown = list.filter((a) => f === "all" || (f === "todo" && (!a.content_reviewed || !URL_USABLE.has(a.url_status))) || a.theme === f);
+  const shown = list.filter((a) => f === "all" || (f === "todo" && (!URL_USABLE.has(a.url_status) || a.title_status !== "確認済み")) || a.theme === f);
   const hubIds = new Set(Object.values(S.hubs).map((h) => h.hub_article_id));
   const chips = [["all", "すべて"], ["todo", "要確認"], ["AI", "AI"], ["ORG", "組織"], ["REG", "地域"]];
   return `
@@ -607,7 +617,7 @@ function openArticle(id) {
       <label class="f">タイトル<textarea id="fTitle" rows="2">${esc(a.title)}</textarea></label>
       <label class="f">記事URL（noteの共有ボタンでコピーしたものをそのまま貼れます）<input id="fUrl" inputmode="url" value="${esc(a.url || "")}"></label>
       <div class="small" id="urlMsg"></div>
-      <label class="check"><input type="checkbox" id="fReviewed" ${a.content_reviewed ? "checked" : ""}>中身を確認した（内容を覚えていればOK）</label>
+      <label class="check"><input type="checkbox" id="fReviewed" ${a.content_reviewed ? "checked" : ""}>中身を確認した（任意。リンクの承認には不要です）</label>
       <label class="f">公開日時（24時間後・72時間後の数字を記録するときに必要）<input type="datetime-local" id="fPub" value="${esc(toLocalInput(a.published_at))}"></label>
       <button type="button" class="primary" id="fSave">保存</button>
     </div>
@@ -714,10 +724,10 @@ function openLink(id) {
       <button type="button" id="lSave">内容を保存</button>
     </div>
     ${nexts.length ? `<div class="card"><h2>状態を進める</h2>
-      <label class="f">承認者（「承認」のときに必要）<input id="lApprover" value="${esc(actor())}"></label>
+      <label class="f">承認者<input id="lApprover" value="${esc(actor())}"></label>
       <label class="f">コメント（任意）<input id="lComment"></label>
       ${nexts.includes("note反映") ? '<div class="note">noteの編集画面でご自身がリンクを貼ったあとに押してください。このページはnoteを操作しません。</div>' : ""}
-      <div class="row">${nexts.map((s) => `<button type="button" class="${s === REJECTED ? "danger" : "primary"}" data-to="${esc(s)}">${s === REJECTED ? "見送り" : esc({ "提案": "提案に戻す", "確認": "つなぐ意味がある（確認）", "承認": "承認する", "note反映": "noteに貼った", "表示確認": "表示を確かめた" }[s])}</button>`).join("")}</div>
+      <div class="row">${nexts.map((s) => `<button type="button" class="${s === REJECTED ? "danger" : "primary"}" data-to="${esc(s)}">${s === REJECTED ? "見送り" : esc({ "提案": "提案に戻す", "承認": "承認する", "note反映": "noteに貼った" }[s])}</button>`).join("")}</div>
     </div>` : ""}
     <div class="card"><h2>この提案の履歴</h2>
       ${(l.history || []).slice().reverse().map((h) => `<div class="hist">${esc(h.at)}　${esc(h.actor)}　${esc(h.from)}→${esc(h.to)}${h.approver ? `（承認者：${esc(h.approver)}）` : ""}${h.comment ? `<br>${esc(h.comment)}` : ""}</div>`).join("") || '<p class="small">まだ状態の変更はありません。</p>'}
@@ -750,9 +760,12 @@ async function doTransition(l, to, approver, comment) {
   if (!nextStatuses(l.status).includes(to)) throw new VErr(`「${l.status}」から「${to}」へは進めません`);
   const blockers = linkBlockers(l);
   const upd = { status: to, updated_at: now() };
-  if (to === "確認") { const s = S.articles[l.source], t = S.articles[l.target]; upd.relevance_status = s?.content_reviewed && t?.content_reviewed ? "確認済み" : "未確認（本文未確認の記事を含む）"; }
-  if (to === "承認") { if (!approver) throw new VErr("承認者名を入力してください"); if (blockers.length) throw new VErr("まだ承認できません：" + blockers.join("、")); }
-  if ((to === "note反映" || to === "表示確認") && blockers.length) throw new VErr("まだ記録できません：" + blockers.join("、"));
+  if (to === "承認") {
+    approver = approver || who;
+    if (blockers.length) throw new VErr("まだ承認できません：" + blockers.join("、"));
+    upd.relevance_status = "確認済み（筆者が承認時に確認）";
+  }
+  if (to === "note反映" && blockers.length) throw new VErr("まだ記録できません：" + blockers.join("、"));
   if (to === "提案") upd.relevance_status = "未確認";
   upd.history = [...(l.history || []), { at: now(), actor: who, from: l.status, to, approver: to === "承認" ? approver : null, comment: comment || null }];
   await write("links/" + l.id, upd, true);
@@ -925,6 +938,81 @@ function openBulk() {
   });
 }
 
+
+/* ---------------- スクショから数字を読み取る（ページからClaudeに画像の読み取りを依頼） ---------------- */
+async function openShot() {
+  const sample = window.claude && window.claude.use ? await window.claude.use("sample") : null;
+  const caps = sample ? await sample.limits().catch(() => null) : null;
+  if (!sample || !caps || !caps.images) { toast("この画面ではスクショの読み取りが使えません。「数字」タブから手入力してください"); return; }
+  openSheet("スクショから記録", `
+  <div class="stack"><div class="card">
+    <p class="small">noteの「アクセス状況」で期間を<b>「全期間」</b>にして、記事の一覧（ビュー・コメント・スキ）が写ったスクショを選んでください。複数の記事が写っていれば、まとめて読み取ります。</p>
+    <input type="file" id="shotIn" accept="${esc(caps.images.mediaTypes.join(","))}">
+    <div id="shotOut"></div>
+  </div></div>`, (el) => {
+    el.querySelector("#shotIn").addEventListener("change", async (ev) => {
+      const file = ev.target.files && ev.target.files[0]; if (!file) return;
+      const out = el.querySelector("#shotOut");
+      out.innerHTML = '<p class="small">読み取っています…（初回は利用の確認が出ます）</p>';
+      const titles = Object.values(S.articles).filter((a) => a.data_kind !== "sample").map((a) => `${a.id}: ${a.title}`).join("\n");
+      try {
+        const res = await sample.json(
+          "これはnoteのクリエイター向け管理画面（アクセス状況）のスクリーンショットです。\n" +
+          "画面に写っている集計期間の表示（例：全期間、今週、今月）と、各記事のタイトル・ビュー数・コメント数・スキ数を読み取ってください。\n" +
+          "読み取れない数字は null にし、推測で埋めないでください。\n" +
+          "タイトルは下の記事一覧の中から最も近いものを選び、その記事IDを id に入れてください。該当がなければ id は null。\n\n" +
+          "記事一覧:\n" + titles + "\n\n" +
+          '次の形のJSONだけを返してください: {"period":"全期間","rows":[{"id":"LS-A010","title":"画面のタイトル","views":123,"comments":0,"likes":12}]}',
+          { images: [file], cache: false });
+        const period = String(res && res.period || "不明");
+        const rows = (res && Array.isArray(res.rows) ? res.rows : []).filter((r) => r && r.id && S.articles[r.id]);
+        const at = now(); const nowD = new Date();
+        const plan = rows.map((r) => {
+          const a = S.articles[r.id]; let win = "cumulative", h = null;
+          if (a.published_at && hasTime(a.published_at)) {
+            h = Math.round((nowD - toDate(a.published_at)) / 36e3) / 100;
+            for (const w of ["24h", "72h"]) { const [lo, hi] = TOLERANCE[w]; if (h >= lo && h <= hi) win = w; }
+          }
+          const num = (v) => (v === null || v === undefined || v === "" || isNaN(Number(v)) ? null : Math.max(0, Math.round(Number(v))));
+          return { a, win, h, pv: num(r.views), comments: num(r.comments), likes: num(r.likes) };
+        }).filter((x) => x.pv !== null || x.likes !== null || x.comments !== null);
+        const okPeriod = period.includes("全期間");
+        out.innerHTML = plan.length ? `
+          <div class="note ${okPeriod ? "" : "warn"}">読み取った期間：${esc(period)}${okPeriod ? "" : "。全期間でない場合、公開から間もない記事以外は正しい累積値になりません。"}</div>
+          <ul class="plain">${plan.map((x, i) => `<li class="qcol"><div class="title-line">${esc(x.a.title)}</div>
+            <div class="small">${esc(WINDOWS[x.win])}${x.h !== null ? `（公開から${Math.round(x.h)}時間）` : "（公開日時不明のため累積値）"}</div>
+            <div class="grid4"><label class="f">ビュー<input id="sv-${i}" inputmode="numeric" value="${x.pv ?? ""}"></label><label class="f">スキ<input id="sl-${i}" inputmode="numeric" value="${x.likes ?? ""}"></label><label class="f">コメント<input id="sc-${i}" inputmode="numeric" value="${x.comments ?? ""}"></label></div></li>`).join("")}</ul>
+          <label class="check"><input type="checkbox" id="shotOk" ${okPeriod ? "checked" : ""}>読み取った数字が画面と合っている</label>
+          <button type="button" class="primary" id="shotSave">${plan.length}件を記録する</button>`
+          : '<div class="note warn">登録済みの記事と一致する数字を読み取れませんでした。期間を「全期間」にした記事一覧のスクショでお試しください。</div>';
+        const btn = el.querySelector("#shotSave");
+        if (btn) btn.addEventListener("click", async () => {
+          btn.disabled = true;
+          try {
+            const who = needActor();
+            if (!el.querySelector("#shotOk").checked) throw new VErr("数字が画面と合っているか確かめて、チェックを入れてください");
+            for (const [i, x] of plan.entries()) {
+              const vals = { imp: null, pv: parseCount(el.querySelector("#sv-" + i).value, "ビュー"), likes: parseCount(el.querySelector("#sl-" + i).value, "スキ"),
+                comments: parseCount(el.querySelector("#sc-" + i).value, "コメント"), meaningful: null, follows: null, consultations: null, membership: null };
+              if (Object.values(vals).every((v) => v === null)) continue;
+              const doc = { article_id: x.a.id, window: x.win, measured_at: at, hours_since_publish: x.h, ...vals,
+                source: `noteアクセス状況のスクショ（期間：${period}）をClaudeが読み取り、${who}が確認`, condition_note: "原典の『ビュー』をPVとして記録",
+                data_kind: "real", created_at: now(), created_by: who };
+              const ref = S.db.collection("metrics").doc();
+              await write("metrics/" + ref.id, doc);
+              await audit("スクショから数字を記録", "metric", ref.id, null, doc);
+            }
+            toast("記録しました"); closeSheet();
+          } catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); btn.disabled = false; }
+        });
+      } catch (e) {
+        const msg = { not_granted: "Claudeの利用が許可されませんでした。手入力で記録してください", rate_limited: "混み合っています。少し時間をおいてお試しください", image_rejected: "この画像は読み取れません。別のスクショでお試しください", invalid_json: "うまく読み取れませんでした。もう一度お試しください" }[e && e.code] || "読み取れませんでした。手入力で記録してください";
+        out.innerHTML = `<div class="note warn">${esc(msg)}</div>`;
+      }
+    });
+  });
+}
+
 /* ---------------- イベント ---------------- */
 document.addEventListener("click", async (ev) => {
   const t = ev.target.closest("button, .card.tap"); if (!t) return;
@@ -952,6 +1040,20 @@ document.addEventListener("click", async (ev) => {
   if (t.dataset.quick) {
     t.disabled = true;
     try { const to = t.dataset.to; await doTransition(S.links[t.dataset.quick], to, actor(), null); toast(`「${STATUS_LABEL[to] || to}」にしました`); }
+    catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); t.disabled = false; }
+    return;
+  }
+  if (t.hasAttribute("data-shot")) return openShot();
+  if (t.hasAttribute("data-toggle-all")) { S.showAllApprove = !S.showAllApprove; render(); return; }
+  if (t.dataset.copySrc) {
+    const el = $("#p-" + CSS.escape(t.dataset.copySrc)); const text = el?.textContent || "";
+    try { await navigator.clipboard.writeText(text); toast("コピーしました。noteで記事の末尾に貼ってください"); }
+    catch { const r = document.createRange(); r.selectNodeContents(el); const sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); toast("文章を選択しました。長押しでコピーしてください"); }
+    return;
+  }
+  if (t.dataset.pasted) {
+    t.disabled = true;
+    try { for (const id of t.dataset.pasted.split(",")) await doTransition(S.links[id], "note反映", actor(), "noteに貼った"); toast("完了にしました"); }
     catch (e) { toast(e instanceof VErr ? e.message : "保存できませんでした"); t.disabled = false; }
     return;
   }
